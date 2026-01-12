@@ -22,8 +22,8 @@ const API_BASE_URL = 'https://api.bonifiq.com.br/v1/pvt/POS'
 // ===========================================================================
 // Obtenha suas credenciais no painel da BonifiQ:
 // Menu > Configurações > API > Credenciais Private API
-const API_USERNAME = 'APIUSER-TotvsOmniP-0ce81622ac5147a6bc6b2472d6a16968'
-const API_PASSWORD = 'ZRZ3GUW9SJFFQ675L5ZJMUHUASCNRZ'
+const API_USERNAME = 'SEU_TOKEN_DE_API'
+const API_PASSWORD = 'SUA_SENHA_DE_API'
 
 /**
  * Gera o header de autenticação Basic Auth
