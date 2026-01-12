@@ -4,8 +4,6 @@ Nesse projeto foi criado o mock simples de um PDV, onde a BonifiQ se integra par
 
 [Saiba mais](https://developers.bonifiq.com.br/guias/pos-integration)
 
-Esta é uma aplicação de demonstração de um PDV (Ponto de Venda) com integração BonifiQ. O objetivo é mostrar como a BonifiQ pode ser integrada de forma desacoplada a um sistema de PDV existente.
-
 ## 🚀 Como Executar
 
 ```bash
