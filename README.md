@@ -1,8 +1,8 @@
 # PDV Example - Demonstração de Integração BonifiQ
+Esse repositório visa demonstrar como funciona a integração da BonifiQ a um PDV já existente.
+Nesse projeto foi criado o mock simples de um PDV, onde a BonifiQ se integra para conceder bonificações, cashback, etc.
 
-![React](https://img.shields.io/badge/React-18.2.0-61DAFB?logo=react)
-![Vite](https://img.shields.io/badge/Vite-5.0.8-646CFF?logo=vite)
-![License](https://img.shields.io/badge/License-MIT-green)
+![Saiba mais](https://developers.bonifiq.com.br/guias/pos-integration)
 
 Esta é uma aplicação de demonstração de um PDV (Ponto de Venda) com integração BonifiQ. O objetivo é mostrar como a BonifiQ pode ser integrada de forma desacoplada a um sistema de PDV existente.
 
