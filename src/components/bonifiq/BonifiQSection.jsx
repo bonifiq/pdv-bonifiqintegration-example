@@ -71,18 +71,35 @@ export function BonifiQSection({
     )
   }
 
+  const availablePoints = rewardsData?.availablePoints || 0
+  const availableCashback = rewardsData?.availableCashback || 0
+
+  const renderBalances = () => (
+    <div className="bonifiq-balances">
+      <div className="bonifiq-balance-item">
+        <span>Pontos:</span>
+        <span className="bonifiq-points-value">{availablePoints}</span>
+      </div>
+      {availableCashback > 0 && (
+        <div className="bonifiq-balance-item">
+          <span>Cashback:</span>
+          <span className="bonifiq-cashback-balance-value">
+            {availableCashback.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+          </span>
+        </div>
+      )}
+    </div>
+  )
+
   if (!rewardsData || !rewardsData.hasRewards) {
     return (
       <div className="bonifiq-section">
         <div className="bonifiq-header">
           <h3>Recompensas</h3>
-          <div className="bonifiq-points">
-            <span>Pontos:</span>
-            <span className="bonifiq-points-value">{rewardsData?.availablePoints || 0}</span>
-          </div>
+          {renderBalances()}
         </div>
         <div className="bonifiq-no-rewards">
-          😕 Nenhuma recompensa disponível para este cliente no momento
+          Nenhuma recompensa disponível para este cliente no momento
         </div>
       </div>
     )
@@ -105,10 +122,7 @@ export function BonifiQSection({
     <div className="bonifiq-section">
       <div className="bonifiq-header">
         <h3>Recompensas Disponíveis</h3>
-        <div className="bonifiq-points">
-          <span>Pontos:</span>
-          <span className="bonifiq-points-value">{rewardsData.availablePoints}</span>
-        </div>
+        {renderBalances()}
       </div>
 
       <div className="bonifiq-rewards">

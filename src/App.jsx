@@ -8,11 +8,12 @@ import {
   ProductsGrid, 
   CartItems, 
   CartTotals, 
-  SuccessScreen 
+  SuccessScreen,
+  OrdersScreen
 } from './components/pdv'
 
 // Componentes da BonifiQ (integração separada)
-import { BonifiQSection, ValidationModal } from './components/bonifiq'
+import { BonifiQSection, RewardsSummaryModal, ValidationModal } from './components/bonifiq'
 
 // Serviço BonifiQ
 import * as BonifiQ from './services/bonifiq'
@@ -33,6 +34,10 @@ function App() {
   const [customer, setCustomer] = useState(null)
   const [cartItems, setCartItems] = useState([])
   const [orderResult, setOrderResult] = useState(null)
+  const [orders, setOrders] = useState([])
+  const [showOrdersScreen, setShowOrdersScreen] = useState(false)
+  const [orderNotice, setOrderNotice] = useState(null)
+  const [processingOrderId, setProcessingOrderId] = useState(null)
 
   // =========================================================================
   // ESTADO DA INTEGRAÇÃO BONIFIQ
@@ -41,44 +46,124 @@ function App() {
   const [cashbackValue, setCashbackValue] = useState(0)
   const [redeemResult, setRedeemResult] = useState(null)
   const [showValidationModal, setShowValidationModal] = useState(false)
+  const [showRewardsSummaryModal, setShowRewardsSummaryModal] = useState(false)
+  const [customerRewardsSummary, setCustomerRewardsSummary] = useState(null)
+  const [isRewardsSummaryLoading, setIsRewardsSummaryLoading] = useState(false)
   const [transactionId, setTransactionId] = useState('')
   const [isProcessing, setIsProcessing] = useState(false)
 
   // =========================================================================
   // CÁLCULOS DO CARRINHO
   // =========================================================================
+  const roundCurrency = (value) => Number(value.toFixed(2))
+  const BIRTHDAY_DISCOUNT_PERCENT = 5
   const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0)
+  const birthdayDiscount = roundCurrency(subtotal * (BIRTHDAY_DISCOUNT_PERCENT / 100))
+  const bonifiqBaseTotal = roundCurrency(subtotal - birthdayDiscount)
   
   // Calcula desconto baseado na recompensa selecionada
-  let discount = 0
-  let discountLabel = ''
+  let bonifiqDiscount = 0
+  let bonifiqDiscountLabel = ''
   if (selectedReward && !redeemResult) {
     if (selectedReward.isCashback) {
-      discount = cashbackValue
-      discountLabel = 'Cashback BonifiQ'
+      bonifiqDiscount = roundCurrency(Math.min(cashbackValue, bonifiqBaseTotal))
+      bonifiqDiscountLabel = 'Cashback BonifiQ'
     } else if (selectedReward.rewardType === 0) {
-      discount = subtotal * (selectedReward.value / 100)
-      discountLabel = `Desconto ${selectedReward.value}% BonifiQ`
+      bonifiqDiscount = roundCurrency(bonifiqBaseTotal * (selectedReward.value / 100))
+      bonifiqDiscountLabel = `Desconto ${selectedReward.value}% BonifiQ`
     } else {
-      discount = selectedReward.value
-      discountLabel = 'Desconto BonifiQ'
+      bonifiqDiscount = roundCurrency(Math.min(selectedReward.value, bonifiqBaseTotal))
+      bonifiqDiscountLabel = 'Desconto BonifiQ'
     }
   } else if (redeemResult) {
-    discount = BonifiQ.calculateDiscount(redeemResult.data, subtotal)
-    discountLabel = 'Desconto BonifiQ (aplicado)'
+    bonifiqDiscount = roundCurrency(Math.min(BonifiQ.calculateDiscount(redeemResult.data, bonifiqBaseTotal), bonifiqBaseTotal))
+    bonifiqDiscountLabel = 'Desconto BonifiQ (aplicado)'
   }
 
-  const total = subtotal - discount
+  const totalDiscount = roundCurrency(birthdayDiscount + bonifiqDiscount)
+  const total = roundCurrency(Math.max(0, bonifiqBaseTotal - bonifiqDiscount))
+
+  const calculateOrderTotals = (items, originalSubtotal, originalDiscount) => {
+    const activeSubtotal = items.reduce((sum, item) => {
+      const activeQuantity = Math.max(0, item.quantity - (item.cancelledQuantity || 0))
+      return sum + (item.price * activeQuantity)
+    }, 0)
+    const proportionalDiscount = originalSubtotal > 0
+      ? originalDiscount * (activeSubtotal / originalSubtotal)
+      : 0
+    const currentDiscount = Math.min(activeSubtotal, proportionalDiscount)
+    return {
+      activeSubtotal,
+      currentTotal: Math.max(0, Number((activeSubtotal - currentDiscount).toFixed(2))),
+    }
+  }
+
+  const buildOrderRecord = (orderData, orderResultData) => {
+    const originalSubtotal = subtotal
+    const originalTotal = orderData.orderTotal
+    const originalDiscount = totalDiscount
+
+    return {
+      originalId: orderData.originalId,
+      customer: orderData.customer,
+      coupon: orderData.coupon,
+      orderData,
+      bonifiqResult: orderResultData,
+      originalSubtotal,
+      originalDiscount,
+      originalTotal,
+      currentTotal: originalTotal,
+      status: 'Concluído',
+      statusClass: 'completed',
+      items: cartItems.map(item => ({
+        id: item.id,
+        name: item.name,
+        quantity: item.quantity,
+        cancelledQuantity: 0,
+        price: item.price,
+        icon: item.icon,
+        brand: item.brand || null,
+        category: item.category || null,
+      })),
+      cancellations: [],
+    }
+  }
 
   // =========================================================================
   // HANDLERS DO PDV
   // =========================================================================
-  const handleSelectCustomer = (cust) => {
+  const handleSelectCustomer = async (cust) => {
     setCustomer(cust)
+    setOrderNotice(null)
     setSelectedReward(null)
     setRedeemResult(null)
+    setCustomerRewardsSummary(null)
+    setShowRewardsSummaryModal(false)
+    setIsRewardsSummaryLoading(false)
+
     if (cust) {
       setCurrentStep(2)
+      setShowRewardsSummaryModal(true)
+      setIsRewardsSummaryLoading(true)
+
+      try {
+        // ======== CHAMADA BONIFIQ: /rewards/available ========
+        const result = await BonifiQ.getAvailableRewards(
+          cust.document,
+          0,
+          0
+        )
+        setCustomerRewardsSummary(result)
+      } catch (err) {
+        console.error(err)
+        setCustomerRewardsSummary({
+          availablePoints: 0,
+          availableCashback: 0,
+          errorMessage: 'Erro ao consultar saldo BonifiQ',
+        })
+      } finally {
+        setIsRewardsSummaryLoading(false)
+      }
     } else {
       setCurrentStep(1)
     }
@@ -211,7 +296,7 @@ function App() {
       orderStatus: 'Concluído',
       isCancelledOrReturned: false,
       isCompleted: true,
-      orderTotal: total, // Valor pago (com desconto aplicado)
+      orderTotal: total, // Valor líquido pago (produtos - aniversário - BonifiQ)
       coupon: couponCode, // ExternalCode da recompensa
       customer: {
         originalId: customer.document,
@@ -261,6 +346,8 @@ function App() {
       originalId: orderId, 
       orderTotal: total 
     }
+    const orderRecord = buildOrderRecord(orderData, orderResultData)
+    setOrders(prev => [orderRecord, ...prev])
     setOrderResult(orderResultData)
     setIsProcessing(false)
   }
@@ -276,12 +363,172 @@ function App() {
     setCashbackValue(0)
     setRedeemResult(null)
     setOrderResult(null)
+    setCustomerRewardsSummary(null)
+    setShowRewardsSummaryModal(false)
+    setIsRewardsSummaryLoading(false)
     setTransactionId('')
+    setShowOrdersScreen(false)
+    setOrderNotice(null)
+  }
+
+  const handleViewOrders = () => {
+    setOrderResult(null)
+    setShowOrdersScreen(true)
+    setOrderNotice(null)
+  }
+
+  const handleBackToPdv = () => {
+    setShowOrdersScreen(false)
+    setOrderNotice(null)
+  }
+
+  const handleCancelOrder = async (order) => {
+    setProcessingOrderId(order.originalId)
+    setOrderNotice(null)
+
+    const cancelledDate = new Date().toISOString()
+    const result = await BonifiQ.cancelOrder(order.originalId, cancelledDate, 'Cancelado')
+
+    if (result.hasError) {
+      setOrderNotice({
+        type: 'error',
+        message: 'Erro ao cancelar pedido na BonifiQ: ' + (result.errorMessage || result.errorCode || 'erro desconhecido'),
+      })
+      setProcessingOrderId(null)
+      return
+    }
+
+    setOrders(prev => prev.map(existingOrder => {
+      if (existingOrder.originalId !== order.originalId) return existingOrder
+
+      return {
+        ...existingOrder,
+        status: 'Cancelado',
+        statusClass: 'cancelled',
+        currentTotal: 0,
+        items: existingOrder.items.map(item => ({
+          ...item,
+          cancelledQuantity: item.quantity,
+        })),
+        cancellations: [
+          ...existingOrder.cancellations,
+          {
+            type: 'total',
+            cancelledAt: cancelledDate,
+          },
+        ],
+      }
+    }))
+    setOrderNotice({ type: 'success', message: 'Cancelamento enviado para a BonifiQ' })
+    setProcessingOrderId(null)
+  }
+
+  const handlePartialCancel = async (order, draftQuantities) => {
+    const selectedQuantities = order.items.reduce((acc, item) => {
+      const activeQuantity = Math.max(0, item.quantity - (item.cancelledQuantity || 0))
+      const quantity = Math.max(0, Math.min(activeQuantity, Number(draftQuantities[item.id]) || 0))
+      if (quantity > 0) acc[item.id] = quantity
+      return acc
+    }, {})
+
+    if (Object.keys(selectedQuantities).length === 0) return
+
+    const remainingItems = order.items.map(item => ({
+      ...item,
+      cancelledQuantity: (item.cancelledQuantity || 0) + (selectedQuantities[item.id] || 0),
+    }))
+    const allItemsCancelled = remainingItems.every(item => item.cancelledQuantity >= item.quantity)
+
+    if (allItemsCancelled) {
+      await handleCancelOrder(order)
+      return
+    }
+
+    setProcessingOrderId(order.originalId)
+    setOrderNotice(null)
+
+    const { currentTotal } = calculateOrderTotals(
+      remainingItems,
+      order.originalSubtotal,
+      order.originalDiscount
+    )
+    const now = new Date().toISOString()
+    const valueToRefund = Math.max(0, Number((order.currentTotal - currentTotal).toFixed(2)))
+    const cancelKey = `PARTIAL-${order.originalId}-${Date.now()}`
+
+    if (valueToRefund <= 0) {
+      setOrderNotice({
+        type: 'error',
+        message: 'O valor do cancelamento parcial precisa ser maior que zero',
+      })
+      setProcessingOrderId(null)
+      return
+    }
+
+    const result = await BonifiQ.partialCancelOrder(order.originalId, valueToRefund, cancelKey)
+
+    if (result.hasError) {
+      setOrderNotice({
+        type: 'error',
+        message: 'Erro ao cancelar parcialmente na BonifiQ: ' + (result.errorMessage || result.errorCode || 'erro desconhecido'),
+      })
+      setProcessingOrderId(null)
+      return
+    }
+
+    setOrders(prev => prev.map(existingOrder => {
+      if (existingOrder.originalId !== order.originalId) return existingOrder
+
+      return {
+        ...existingOrder,
+        orderData: {
+          ...existingOrder.orderData,
+          orderStatus: 'Parcialmente cancelado',
+          orderTotal: currentTotal,
+        },
+        bonifiqResult: result.data || result.result || existingOrder.bonifiqResult,
+        currentTotal,
+        status: 'Parcialmente cancelado',
+        statusClass: 'partial',
+        items: remainingItems,
+        cancellations: [
+          ...existingOrder.cancellations,
+          {
+            type: 'partial',
+            cancelledAt: now,
+            items: selectedQuantities,
+            valueToRefund,
+            cancelKey,
+          },
+        ],
+      }
+    }))
+    setOrderNotice({ type: 'success', message: 'Cancelamento parcial enviado para a BonifiQ' })
+    setProcessingOrderId(null)
   }
 
   // =========================================================================
   // RENDER
   // =========================================================================
+  if (showOrdersScreen) {
+    return (
+      <>
+        <Header />
+        <div className="container">
+          <OrdersScreen
+            orders={orders}
+            onBack={handleBackToPdv}
+            onNewSale={handleNewSale}
+            onCancelOrder={handleCancelOrder}
+            onPartialCancel={handlePartialCancel}
+            isProcessing={!!processingOrderId}
+            processingOrderId={processingOrderId}
+            notice={orderNotice}
+          />
+        </div>
+      </>
+    )
+  }
   
   // Tela de sucesso
   if (orderResult) {
@@ -289,7 +536,11 @@ function App() {
       <>
         <Header />
         <div className="container">
-          <SuccessScreen orderResult={orderResult} onNewSale={handleNewSale} />
+          <SuccessScreen
+            orderResult={orderResult}
+            onNewSale={handleNewSale}
+            onViewOrders={handleViewOrders}
+          />
         </div>
       </>
     )
@@ -299,6 +550,11 @@ function App() {
     <>
       <Header />
       <div className="container">
+        <div className="pdv-actions-bar">
+          <button className="btn btn-secondary" onClick={handleViewOrders}>
+            Pedidos feitos ({orders.length})
+          </button>
+        </div>
         <StepIndicator currentStep={currentStep} />
         
         <div className="pdv-layout">
@@ -341,7 +597,7 @@ function App() {
             {customer && cartItems.length > 0 && (
               <BonifiQSection
                 customer={customer}
-                purchaseValue={subtotal}
+                purchaseValue={bonifiqBaseTotal}
                 selectedReward={selectedReward}
                 onRewardSelected={handleRewardSelected}
                 cashbackValue={cashbackValue}
@@ -354,8 +610,12 @@ function App() {
             {cartItems.length > 0 && (
               <CartTotals 
                 subtotal={subtotal} 
-                discount={discount}
-                discountLabel={discountLabel}
+                birthdayDiscount={birthdayDiscount}
+                birthdayDiscountPercent={BIRTHDAY_DISCOUNT_PERCENT}
+                bonifiqBaseTotal={bonifiqBaseTotal}
+                bonifiqDiscount={bonifiqDiscount}
+                bonifiqDiscountLabel={bonifiqDiscountLabel}
+                total={total}
               />
             )}
 
@@ -375,6 +635,15 @@ function App() {
           </div>
         </div>
       </div>
+
+      {/* Resumo BonifiQ ao identificar CPF */}
+      {showRewardsSummaryModal && (
+        <RewardsSummaryModal
+          rewardsSummary={customerRewardsSummary}
+          isLoading={isRewardsSummaryLoading}
+          onConfirm={() => setShowRewardsSummaryModal(false)}
+        />
+      )}
 
       {/* Modal de Validação BonifiQ */}
       {showValidationModal && (

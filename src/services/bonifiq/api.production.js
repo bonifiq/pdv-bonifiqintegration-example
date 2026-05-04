@@ -273,3 +273,28 @@ export async function cancelOrder(orderId, cancelledDate, orderStatus = 'Cancela
   const data = await response.json()
   return normalizeKeys(data)
 }
+
+/**
+ * ===========================================================================
+ * POST /{orderId}/partialcancel
+ * ===========================================================================
+ * 
+ * Cancela parcialmente um pedido. O valor informado remove pontos/cashback
+ * correspondentes ao valor estornado.
+ */
+export async function partialCancelOrder(orderId, valueToRefund, cancelKey) {
+  const response = await fetch(`${API_BASE_URL}/${orderId}/partialcancel`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': getAuthHeader(),
+    },
+    body: JSON.stringify(pascalizeKeys({
+      valueToRefund,
+      cancelKey,
+    })),
+  })
+
+  const data = await response.json()
+  return normalizeKeys(data)
+}

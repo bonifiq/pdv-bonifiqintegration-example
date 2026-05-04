@@ -39,6 +39,7 @@ export const {
   cancelReward,
   createOrder,
   cancelOrder,
+  partialCancelOrder,
 } = api
 
 // Helper Functions

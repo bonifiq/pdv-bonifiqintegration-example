@@ -1,14 +1,107 @@
-# PDV Example - Demonstração de Integração BonifiQ
-Esse repositório visa demonstrar como funciona a integração da BonifiQ a um PDV já existente.
-Nesse projeto foi criado o mock simples de um PDV, onde a BonifiQ se integra para conceder bonificações, cashback, etc.
+# PDV Example - Integração BonifiQ para PDVs
 
-[Saiba mais](https://developers.bonifiq.com.br/guias/pos-integration)
+Este repositório demonstra como um PDV genérico pode se conectar à BonifiQ durante o fluxo de venda.
 
-## 🚀 Como Executar
+A aplicação React incluída aqui é apenas uma demo visual. O ponto principal é mostrar **em quais momentos do PDV chamar a BonifiQ**, quais dados enviar e como usar as respostas para exibir pontos, cashback, recompensas e registrar a venda.
+
+[Guia oficial de integração POS](https://developers.bonifiq.com.br/guias/pos-integration)
+
+## Objetivo da Demo
+
+Esta demo ajuda desenvolvedores de PDVs a entender:
+
+- como consultar recompensas disponíveis para um cliente identificado por CPF;
+- como exibir pontos, cashback e descontos retornados pela BonifiQ;
+- como validar o cliente quando necessário;
+- como resgatar uma recompensa selecionada;
+- como enviar a venda concluída para a BonifiQ;
+- como tratar vendas sem recompensa, mas que ainda devem ser registradas para pontuação;
+- como cancelar pedido ou recompensa quando houver estorno/cancelamento.
+
+## Fluxo Resumido
+
+```text
+1. Cliente informa CPF no PDV
+   -> POST /rewards/available
+
+2. PDV exibe pontos, cashback e recompensas disponíveis
+   -> Usa hasRewards, availablePoints, availableCashback e rewards
+
+3. Cliente seleciona uma recompensa, se houver
+   -> Opcionalmente valida identidade com challenge/challengevalidate
+
+4. PDV resgata a recompensa selecionada
+   -> POST /rewards/{id}/redeem
+   -> Guarda o ExternalCode retornado
+
+5. PDV conclui pagamento da venda
+   -> Aplica desconto/cashback no total pago
+
+6. PDV envia a venda para a BonifiQ
+   -> POST /orders
+   -> Envia o ExternalCode no campo coupon quando houve resgate
+
+7. Se a venda for cancelada
+   -> Total: POST /orders/{id}/cancel
+   -> Parcial: POST /{orderId}/partialcancel com ValueToRefund e CancelKey
+```
+
+## Onde Plugar no Seu PDV
+
+| Momento no PDV | O que chamar na BonifiQ | Observação |
+|---|---|---|
+| Cliente informa CPF | `POST /rewards/available` | Consulta saldo, cashback e recompensas disponíveis. |
+| Carrinho muda | `POST /rewards/available` | Reconsulte usando o novo valor da compra, pois regras podem depender do total. |
+| Cliente escolhe recompensa | `POST /customers/{id}/challenge` e `POST /customers/{id}/challengevalidate` | Use quando `shouldValidateCustomer` indicar validação. |
+| Recompensa confirmada | `POST /rewards/{id}/redeem` | Resgata o benefício e retorna o `ExternalCode`. |
+| Venda paga/concluída | `POST /orders` | Sempre envie a venda, mesmo sem recompensa, para registrar pontuação. |
+| Venda cancelada totalmente | `POST /orders/{id}/cancel` | Use para remover pontos e cancelar o pedido completo na BonifiQ. |
+| Venda cancelada parcialmente | `POST /{orderId}/partialcancel` | Envie o valor estornado e uma chave única de cancelamento. |
+
+## Responsabilidades
+
+O PDV continua responsável por:
+
+- identificar cliente e montar carrinho;
+- calcular subtotal, descontos aplicados e total líquido pago;
+- conduzir pagamento e fechamento da venda;
+- enviar pedido concluído para a BonifiQ;
+- controlar cancelamentos e estornos no fluxo operacional.
+
+A BonifiQ retorna:
+
+- pontos disponíveis;
+- saldo de cashback;
+- lista de recompensas;
+- elegibilidade de cada recompensa;
+- valor máximo de cashback para a compra atual;
+- necessidade de validação do cliente;
+- código externo do resgate para vincular recompensa ao pedido;
+- resultado do registro/cancelamento do pedido.
+
+> Em produção, o PDV não deve recalcular regras de elegibilidade da BonifiQ. Campos como `canUse`, `hasRewards`, `maxCashbackForCurrentPurchase` e `shouldValidateCustomer` já vêm calculados pela API.
+
+## Valor Líquido do Pedido
+
+Via de regra, o campo `OrderTotal` enviado para a BonifiQ deve representar o valor líquido da venda: produtos menos bônus, cupons, descontos, taxas, frete ou outros ajustes aplicáveis no PDV.
+
+Nesta demo, o PDV aplica sempre um `Desconto de Aniversário` de 5% antes de consultar/aplicar benefícios BonifiQ:
+
+```text
+Valor dos produtos
+- Desconto de Aniversário (5%)
+= Base para BonifiQ
+- Cashback ou recompensa BonifiQ
+= OrderTotal enviado para a BonifiQ
+```
+
+Com isso, cashback e recompensas BonifiQ são calculados sobre a base líquida após o desconto de aniversário, não sobre o valor bruto dos produtos.
+
+## Como Executar
 
 ```bash
-# Clonar o repositório
-git clone https://github.com/bonifiq/loyalty.git
+# Clonar este repositório
+git clone <url-deste-repositorio>
 
 # Entrar na pasta do projeto
 cd pdv-example
@@ -20,286 +113,194 @@ npm install
 npm run dev
 ```
 
-A aplicação estará disponível em `http://localhost:5173`
+A aplicação estará disponível em `http://localhost:5173`.
 
-## 📦 Scripts Disponíveis
-
-| Script | Descrição |
-|--------|-----------|
-| `npm run dev` | Inicia o servidor de desenvolvimento |
-| `npm run build` | Gera build de produção na pasta `dist/` |
-| `npm run preview` | Visualiza o build de produção localmente |
-
-## 🛠️ Tecnologias
-
-- **React 18** - Biblioteca para interfaces de usuário
-- **Vite 5** - Build tool e dev server
-- **JavaScript (ES Modules)** - Linguagem de programação
-- **CSS Puro** - Estilização sem frameworks
-
-## 👥 Clientes de Teste
+## Clientes de Teste
 
 Use os seguintes CPFs para testar diferentes cenários:
 
-| CPF | Cliente | Pontos | Cashback |
-|-----|---------|--------|----------|
-| `12345678900` | Maria Silva | 1500 | R$ 25,00 |
-| `98765432100` | João Santos | 350 | R$ 0,00 |
-| `11122233344` | Ana Costa | 50 | R$ 100,00 |
+| CPF | Cliente | Pontos | Cashback | Cenário |
+|---|---|---:|---:|---|
+| `12345678900` | Maria Silva | 1500 | R$ 25,00 | Cliente com pontos e cashback. |
+| `98765432100` | João Santos | 350 | R$ 0,00 | Cliente com pontos, sem cashback. |
+| `11122233344` | Ana Costa | 50 | R$ 100,00 | Cliente com cashback alto e poucos pontos. |
 
-## 🏗️ Arquitetura
+## Endpoints Usados
 
-A aplicação foi projetada com **separação clara entre PDV e BonifiQ**:
+Base URL de produção:
 
-```
-pdv-example/
-├── index.html                          # HTML principal
-├── package.json                        # Dependências e scripts
-├── vite.config.js                      # Configuração do Vite
-│
-└── src/
-    ├── App.jsx                         # Orquestrador principal (PDV + BonifiQ)
-    ├── index.css                       # Estilos globais
-    ├── main.jsx                        # Entry point React
-    │
-    ├── data/                           # 📦 Dados simulados
-    │   ├── products.js                 # Catálogo de produtos
-    │   └── customers.js                # Base de clientes
-    │
-    ├── components/
-    │   ├── pdv/                        # 🛒 Componentes do PDV (sem BonifiQ)
-    │   │   ├── Header.jsx              # Cabeçalho da aplicação
-    │   │   ├── StepIndicator.jsx       # Indicador de etapas
-    │   │   ├── CustomerSelector.jsx    # Seleção de cliente por CPF
-    │   │   ├── ProductsGrid.jsx        # Grid de produtos
-    │   │   ├── CartItems.jsx           # Itens do carrinho
-    │   │   ├── CartTotals.jsx          # Totais e descontos
-    │   │   ├── SuccessScreen.jsx       # Tela de sucesso
-    │   │   └── index.js                # Exportação centralizada
-    │   │
-    │   └── bonifiq/                    # 🎁 Componentes BonifiQ (integração)
-    │       ├── BonifiQSection.jsx      # Seção de recompensas
-    │       ├── ValidationModal.jsx     # Modal de validação OTP
-    │       └── index.js                # Exportação centralizada
-    │
-    └── services/
-        └── bonifiq/                    # 🔌 Serviço BonifiQ (ISOLADO)
-            ├── mockData.js             # Dados mockados para demo
-            ├── api.mock.js             # ⚠️ Implementação MOCK (simulação)
-            ├── api.production.js       # ✅ Implementação PRODUÇÃO (HTTP)
-            ├── helpers.js              # Funções auxiliares
-            └── index.js                # Exportação + switch mock/prod
+```text
+https://api.bonifiq.com.br/v1/pvt/POS
 ```
 
-### Componentes do PDV (sem BonifiQ)
+| Método | Endpoint | Quando usar |
+|---|---|---|
+| `POST` | `/rewards/available` | Consultar recompensas, pontos e cashback. |
+| `POST` | `/customers/{id}/challenge` | Enviar código OTP para validação do cliente. |
+| `POST` | `/customers/{id}/challengevalidate` | Validar código OTP informado pelo cliente. |
+| `POST` | `/rewards/{id}/redeem` | Resgatar recompensa selecionada. |
+| `DELETE` | `/rewards/{id}` | Cancelar/estornar recompensa resgatada. |
+| `POST` | `/orders` | Registrar venda concluída. |
+| `POST` | `/orders/{id}/cancel` | Cancelar pedido registrado. |
+| `POST` | `/{orderId}/partialcancel` | Cancelar parcialmente um pedido registrado. |
 
-Estes componentes são **puro PDV** e não conhecem a BonifiQ:
+Para cancelamento parcial, a demo calcula o valor líquido dos itens devolvidos e envia esse valor no endpoint `partialcancel`.
 
-- `Header` - Cabeçalho com informações da loja
-- `StepIndicator` - Indicador de etapa da venda
-- `CustomerSelector` - Seleção de cliente por CPF
-- `ProductsGrid` - Grid de produtos disponíveis
-- `CartItems` - Itens do carrinho
-- `CartTotals` - Subtotal, desconto e total
-- `SuccessScreen` - Tela de venda finalizada
+## Exemplos de Integração
 
-### Componentes da BonifiQ (integração)
+### Consultar Recompensas
 
-Estes componentes encapsulam toda a lógica de integração:
-
-- `BonifiQSection` - Seção de recompensas disponíveis
-- `ValidationModal` - Modal de validação de identidade (OTP)
-
-### Serviço de Integração
-
-A pasta `services/bonifiq/` contém **toda a comunicação com a API da BonifiQ**, completamente isolada do resto da aplicação:
-
-- **mockData.js** - Dados mockados que simulam respostas do backend
-- **api.mock.js** - Implementação mock para demonstração
-- **api.production.js** - Implementação real com chamadas HTTP
-- **helpers.js** - Funções utilitárias (cálculo de desconto, formatação, etc.)
-- **index.js** - Exportação centralizada e switch mock/produção
+Use quando o cliente informar o CPF e sempre que o valor da compra mudar.
 
 ```javascript
-// Em produção, substitua as funções mock por chamadas reais à API
-// Base URL: https://api.bonifiq.com.br/v1/pvt/POS
-
-import * as BonifiQ from './services/bonifiq'
-
-// Consultar recompensas
-const rewards = await BonifiQ.getAvailableRewards(customerId, purchaseValue)
-
-// Enviar código de validação
-await BonifiQ.sendChallenge(customerId, transactionId)
-
-// Validar código
-await BonifiQ.validateChallenge(customerId, transactionId, code)
-
-// Resgatar recompensa
-await BonifiQ.redeemReward(rewardId, customerId, value, originalKey)
-
-// Criar pedido
-await BonifiQ.createOrder(orderData)
-
-// Cancelar recompensa (estorno)
-await BonifiQ.cancelReward(rewardId)
-
-// Cancelar pedido
-await BonifiQ.cancelOrder(orderId, cancelledDate)
+const rewards = await BonifiQ.getAvailableRewards(
+  customerId,
+  purchaseValue,
+  discountValue
+)
 ```
 
-## 🔄 Fluxo de Integração
+Campos importantes da resposta:
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                         FLUXO DO PDV                             │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│  1. Identificar Cliente (CPF)                                   │
-│         │                                                        │
-│         ▼                                                        │
-│  ┌──────────────────────────────────────────────────────────┐   │
-│  │  🔌 BonifiQ: POST /rewards/available                      │   │
-│  │     - Consulta recompensas disponíveis                   │   │
-│  │     - Exibe pontos, cashback e descontos                 │   │
-│  └──────────────────────────────────────────────────────────┘   │
-│         │                                                        │
-│         ▼                                                        │
-│  2. Adicionar Produtos ao Carrinho                              │
-│         │                                                        │
-│         ▼                                                        │
-│  3. Selecionar Recompensa (opcional)                            │
-│         │                                                        │
-│         ▼                                                        │
-│  ┌──────────────────────────────────────────────────────────┐   │
-│  │  🔌 BonifiQ: POST /customers/{id}/challenge              │   │
-│  │     - Envia código de validação por SMS/Email            │   │
-│  │                                                          │   │
-│  │  🔌 BonifiQ: POST /customers/{id}/challengevalidate      │   │
-│  │     - Valida o código informado pelo cliente             │   │
-│  └──────────────────────────────────────────────────────────┘   │
-│         │                                                        │
-│         ▼                                                        │
-│  ┌──────────────────────────────────────────────────────────┐   │
-│  │  🔌 BonifiQ: POST /rewards/{id}/redeem                   │   │
-│  │     - Resgata a recompensa selecionada                   │   │
-│  │     - Retorna ExternalCode para vincular ao pedido       │   │
-│  └──────────────────────────────────────────────────────────┘   │
-│         │                                                        │
-│         ▼                                                        │
-│  4. Aplicar Desconto no PDV                                     │
-│         │                                                        │
-│         ▼                                                        │
-│  5. Finalizar Pagamento                                         │
-│         │                                                        │
-│         ▼                                                        │
-│  ┌──────────────────────────────────────────────────────────┐   │
-│  │  🔌 BonifiQ: POST /orders                                │   │
-│  │     - Registra o pedido na BonifiQ                       │   │
-│  │     - Cliente ganha pontos pela compra                   │   │
-│  │     - Vincula recompensa ao pedido (ExternalCode)        │   │
-│  └──────────────────────────────────────────────────────────┘   │
-│         │                                                        │
-│         ▼                                                        │
-│  6. Exibir Confirmação (pontos ganhos)                          │
-│                                                                  │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-## 💡 Pontos de Integração no Código
-
-### 1. Consulta de Recompensas
-
-```jsx
-// BonifiQSection.jsx
-useEffect(() => {
-  const fetchRewards = async () => {
-    // ======== CHAMADA BONIFIQ: /rewards/available ========
-    const result = await BonifiQ.getAvailableRewards(
-      customer.document,
-      purchaseValue,
-      0 // sem outros descontos
-    )
-    setRewardsData(result)
-  }
-  fetchRewards()
-}, [customer, purchaseValue])
-```
-
-### 2. Validação de Identidade
-
-```jsx
-// ValidationModal.jsx
-useEffect(() => {
-  // ======== CHAMADA BONIFIQ: /customers/{id}/challenge ========
-  const result = await BonifiQ.sendChallenge(customer.document, transactionId)
-}, [])
-
-const handleValidate = async () => {
-  // ======== CHAMADA BONIFIQ: /customers/{id}/challengevalidate ========
-  const result = await BonifiQ.validateChallenge(customer.document, transactionId, code)
+```javascript
+{
+  hasRewards: true,
+  availablePoints: 1500,
+  cashbackEnabled: true,
+  availableCashback: 25.00,
+  maxCashbackForCurrentPurchase: 20.00,
+  shouldValidateCustomer: true,
+  rewards: [
+    {
+      id: 4,
+      title: 'Usar Cashback',
+      rewardType: 3,
+      isCashback: true,
+      canUse: true,
+      availableCashback: 25.00,
+      maxCashbackForCurrentPurchase: 20.00
+    }
+  ]
 }
 ```
 
-### 3. Resgate de Recompensa
+Se `hasRewards` for `false`, o PDV deve informar que não há recompensa disponível, mas ainda pode exibir saldos como pontos e cashback.
 
-```jsx
-// App.jsx - processRedeem
-const originalKey = `${selectedReward.id}-${customer.document}-${Date.now()}`
+### Validar Cliente
 
-// ======== CHAMADA BONIFIQ: /rewards/{id}/redeem ========
-const result = await BonifiQ.redeemReward(
-  selectedReward.id,
-  customer.document,
-  selectedReward.isCashback ? cashbackValue : null,
+Use quando a resposta indicar que o cliente deve ser validado antes do resgate.
+
+```javascript
+await BonifiQ.sendChallenge(customerId, transactionId)
+await BonifiQ.validateChallenge(customerId, transactionId, code)
+```
+
+### Resgatar Recompensa
+
+Use quando o cliente confirmar o uso de uma recompensa.
+
+```javascript
+const originalKey = `${rewardId}-${customerId}-${Date.now()}`
+
+const redeem = await BonifiQ.redeemReward(
+  rewardId,
+  customerId,
+  reward.isCashback ? cashbackValue : null,
   originalKey
 )
 
-// O ExternalCode deve ser enviado no campo Coupon do pedido
-const externalCode = result.data.externalCode
+const externalCode = redeem.data?.externalCode || redeem.result?.externalCode
 ```
 
-### 4. Registro do Pedido
+O `ExternalCode` retornado deve ser enviado no campo `coupon` do pedido para vincular a recompensa à venda.
 
-```jsx
-// App.jsx - processOrder
-// ======== CHAMADA BONIFIQ: /orders ========
+### Registrar Pedido
+
+Use depois que a venda foi paga/concluída no PDV.
+
+`orderTotal` deve receber o valor líquido final pago pelo cliente.
+
+```javascript
+const productTotal = 200.00
+const birthdayDiscount = productTotal * 0.05
+const bonifiqBaseTotal = productTotal - birthdayDiscount
+const cashbackUsed = 20.00
+const totalPaid = bonifiqBaseTotal - cashbackUsed
+
 const orderData = {
   originalId: orderId,
   orderPlacementDate: now,
   orderCompletedDate: now,
+  orderStatus: 'Concluído',
+  isCancelledOrReturned: false,
   isCompleted: true,
-  orderTotal: total, // Valor PAGO (com desconto aplicado)
-  coupon: couponCode, // ExternalCode da recompensa
-  customer: { ... },
-  products: [ ... ],
+  orderTotal: totalPaid,
+  coupon: externalCode,
+  customer: {
+    originalId: customer.document,
+    name: customer.name,
+    email: customer.email,
+    phone: customer.phone,
+    document: customer.document,
+    isEnrolled: true
+  },
+  products: cartItems.map(item => ({
+    originalId: item.id,
+    title: item.name,
+    quantity: item.quantity,
+    price: item.price,
+    productPrice: item.price,
+    isActive: true
+  }))
 }
 
-const result = await BonifiQ.createOrder(orderData)
+await BonifiQ.createOrder(orderData)
 ```
 
-## 🎨 Identificação Visual
+Mesmo quando nenhuma recompensa é usada, envie o pedido para a BonifiQ. Esse registro permite pontuar o cliente conforme a configuração do programa.
 
-A seção de BonifiQ é visualmente distinta do resto do PDV:
+### Cancelar Pedido
 
-- Fundo azul gradiente
-- Borda azul
-- Badge "🎁 BonifiQ" no topo
-- Ícones específicos para recompensas
-
-Isso ajuda a demonstrar claramente onde está a integração e facilita a compreensão do que é PDV vs. o que é BonifiQ.
-
-## 🔧 Adaptando para Produção
-
-### Alternando entre Mock e Produção
-
-Para alternar entre mock e produção, edite o arquivo `src/services/bonifiq/index.js`:
+Para cancelamento total, use o endpoint específico de cancelamento:
 
 ```javascript
-// ============================================
-// 🔀 ALTERE AQUI PARA MUDAR ENTRE MOCK/PROD:
-// ============================================
+await BonifiQ.cancelOrder(orderId, new Date().toISOString(), 'Cancelado')
+```
 
+Para cancelamento parcial, use o mesmo ID original do pedido e envie o valor estornado:
+
+```javascript
+const valueToRefund = 25.90
+const cancelKey = `PARTIAL-${orderId}-${Date.now()}`
+
+await BonifiQ.partialCancelOrder(orderId, valueToRefund, cancelKey)
+```
+
+O `CancelKey` deve ser único por cancelamento parcial para evitar duplicidade.
+
+Na demo, os pedidos ficam em memória e podem ser cancelados pela tela “Pedidos feitos”.
+
+## Cenários Cobertos na Demo
+
+- Cliente com pontos suficientes para usar desconto.
+- Cliente com cashback disponível.
+- Cliente sem cashback.
+- Cliente sem recompensa disponível para a compra atual.
+- Desconto de aniversário aplicado antes da base BonifiQ.
+- Resgate de recompensa com validação de identidade.
+- Registro da venda na BonifiQ após conclusão.
+- Exibição de confirmação visual de que a venda foi enviada para a BonifiQ.
+- Listagem de pedidos feitos em memória.
+- Cancelamento total enviado para a BonifiQ.
+- Cancelamento parcial por item usando `/{orderId}/partialcancel`.
+
+## Adaptando para Produção
+
+### Alternar Mock e Produção
+
+O arquivo `src/services/bonifiq/index.js` centraliza a escolha entre API mockada e API real. Deixe apenas uma das opções importada:
+
+```javascript
 // Para MOCK (demonstração):
 import * as api from './api.mock'
 
@@ -307,55 +308,65 @@ import * as api from './api.mock'
 // import * as api from './api.production'
 ```
 
-### Configurando Credenciais
+Neste repositório, confira esse arquivo para ver qual implementação está ativa antes de rodar a demo.
 
-Para usar em produção, configure suas credenciais no arquivo `src/services/bonifiq/api.production.js`:
+### Configurar Credenciais
+
+No arquivo `src/services/bonifiq/api.production.js`, configure as credenciais obtidas no painel da BonifiQ:
 
 ```javascript
-// Obtenha suas credenciais no painel da BonifiQ:
-// Menu > Configurações > API > Credenciais Private API
 const API_USERNAME = 'SEU-USUARIO-API'
 const API_PASSWORD = 'SUA-SENHA-API'
 ```
 
-A autenticação usa **Basic Auth** (Base64 de `username:password`).
+A autenticação usa Basic Auth com Base64 de `username:password`.
 
 ### Normalização de Campos
 
-A API BonifiQ usa **PascalCase** (ex: `HasRewards`, `CanUse`), mas o frontend usa **camelCase** (ex: `hasRewards`, `canUse`). O arquivo `api.production.js` já inclui funções de normalização automática:
+A API BonifiQ usa PascalCase em produção, por exemplo `HasRewards` e `CanUse`.
 
-- `normalizeKeys()` - Converte resposta da API (PascalCase → camelCase)
-- `pascalizeKeys()` - Converte dados para envio (camelCase → PascalCase)
+A demo converte automaticamente:
 
-### Campos Calculados pela API
+- resposta da API de PascalCase para camelCase;
+- payload enviado de camelCase para PascalCase.
 
-> **IMPORTANTE:** Em produção, a API já retorna todos os campos calculados. Você **NÃO** precisa calcular nada no PDV!
+Essas funções estão em `src/services/bonifiq/api.production.js`.
 
-Campos que a API retorna prontos:
-- `canUse` - Se o cliente pode usar esta recompensa
-- `maxCashbackForCurrentPurchase` - Máximo de cashback permitido
-- `hasRewards` - Se há alguma recompensa disponível
-- `shouldValidateCustomer` - Se precisa validar identidade
+## Estrutura do Projeto
 
-## 📚 Documentação da API
+A demo separa o que é PDV do que é integração BonifiQ:
 
-### Endpoints Disponíveis
+```text
+pdv-example/
+├── index.html
+├── package.json
+├── vite.config.js
+└── src/
+    ├── App.jsx                         # Orquestra PDV + BonifiQ
+    ├── data/                           # Produtos e clientes simulados
+    ├── components/
+    │   ├── pdv/                        # Componentes puros do PDV
+    │   └── bonifiq/                    # UI da integração BonifiQ
+    │       ├── BonifiQSection.jsx      # Consulta e seleção de recompensas
+    │       ├── RewardsSummaryModal.jsx # Resumo de pontos e cashback
+    │       └── ValidationModal.jsx     # Validação OTP
+    └── services/
+        └── bonifiq/
+            ├── api.mock.js             # Simulação local
+            ├── api.production.js       # Chamadas HTTP reais
+            ├── helpers.js              # Helpers de desconto/formatação
+            ├── mockData.js             # Dados da demo
+            └── index.js                # Exportação centralizada
+```
 
-| Método | Endpoint | Descrição |
-|--------|----------|-----------|
-| `POST` | `/rewards/available` | Consulta recompensas disponíveis |
-| `POST` | `/customers/{id}/challenge` | Envia código OTP |
-| `POST` | `/customers/{id}/challengevalidate` | Valida código OTP |
-| `POST` | `/rewards/{id}/redeem` | Resgata recompensa |
-| `DELETE` | `/rewards/{id}` | Cancela/estorna recompensa |
-| `POST` | `/orders` | Registra pedido |
-| `POST` | `/orders/{id}/cancel` | Cancela pedido |
+Ponto principal para adaptação: em um PDV real, a pasta `services/bonifiq/` representa a camada de integração que pode ser portada para a stack usada pelo seu sistema.
 
-### Links Úteis
+## Links Úteis
 
+- [Guia POS Integration](https://developers.bonifiq.com.br/guias/pos-integration)
 - [Swagger API](https://api.bonifiq.com.br/apidocs/private/index.html?url=/swagger/Private%20APIs/swagger.json#/POS)
 - [Central de Ajuda](https://suporte.bonifiq.com.br)
 
-## 📄 Licença
+## Licença
 
-Este exemplo é fornecido como demonstração e pode ser usado livremente como base para integrações com a BonifiQ.
+Este exemplo é fornecido como demonstração e pode ser usado como base para integrações com a BonifiQ.

@@ -379,3 +379,37 @@ export async function cancelOrder(orderId, cancelledDate, orderStatus = 'Cancela
     },
   }
 }
+
+/**
+ * ===========================================================================
+ * POST /{orderId}/partialcancel
+ * ===========================================================================
+ * Cancela parcialmente um pedido
+ */
+export async function partialCancelOrder(orderId, valueToRefund, cancelKey) {
+  await delay(MOCK_DELAY)
+
+  if (!valueToRefund || valueToRefund <= 0) {
+    return {
+      hasError: true,
+      errorMessage: 'Valor de cancelamento parcial inválido',
+      data: null,
+    }
+  }
+
+  return {
+    hasError: false,
+    data: {
+      isCanceled: false,
+      isPartiallyCanceled: true,
+      orderId,
+      valueToRefund,
+      cancelKey,
+      updatedAt: new Date().toISOString(),
+      status: {
+        code: 4,
+        description: 'Parcialmente cancelado',
+      },
+    },
+  }
+}

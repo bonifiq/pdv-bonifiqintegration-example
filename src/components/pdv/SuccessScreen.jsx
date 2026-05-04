@@ -6,7 +6,7 @@ const AUTO_RESET_SECONDS = 10
  * Tela de venda finalizada com sucesso
  * Reinicia automaticamente após alguns segundos
  */
-export function SuccessScreen({ orderResult, onNewSale }) {
+export function SuccessScreen({ orderResult, onNewSale, onViewOrders }) {
   const [countdown, setCountdown] = useState(AUTO_RESET_SECONDS)
 
   // Auto-reset após countdown
@@ -30,6 +30,9 @@ export function SuccessScreen({ orderResult, onNewSale }) {
       <div className="success-icon">✅</div>
       <h2>Venda Concluída!</h2>
       <p style={{ fontSize: '14px', color: '#6b7280' }}>Pedido #{orderResult?.originalId || 'Processado'}</p>
+      <div className="success-callout">
+        Venda enviada para a BonifiQ
+      </div>
       
       <div className="success-details">
         {orderResult?.orderTotal !== undefined && (
@@ -70,6 +73,13 @@ export function SuccessScreen({ orderResult, onNewSale }) {
         style={{ width: '100%', marginTop: '16px' }}
       >
         Iniciar Nova Venda Agora
+      </button>
+      <button
+        className="btn btn-secondary"
+        onClick={onViewOrders}
+        style={{ width: '100%', marginTop: '12px' }}
+      >
+        Ver pedidos feitos
       </button>
     </div>
   )
