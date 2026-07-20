@@ -9,9 +9,40 @@
 
 // Dados de clientes (para validação local)
 export const mockCustomers = {
-  '12345678900': { id: '12345678900', name: 'Maria Silva', email: 'maria@email.com', phone: '11999998888' },
-  '98765432100': { id: '98765432100', name: 'João Santos', email: 'joao@email.com', phone: '11888887777' },
-  '11122233344': { id: '11122233344', name: 'Ana Costa', email: 'ana@email.com', phone: '11777776666' },
+  '12345678900': {
+    id: 1001,
+    originalId: '12345678900',
+    name: 'Maria Silva',
+    email: 'maria@email.com',
+    phone: '11999998888',
+    document: '12345678900',
+    isEnrolled: true,
+    currentTier: { name: 'Nível Ouro', color: '#d97706', iconUrl: null },
+  },
+  '98765432100': {
+    id: 1002,
+    originalId: '98765432100',
+    name: 'João Santos',
+    email: 'joao@email.com',
+    phone: '11888887777',
+    document: '98765432100',
+    isEnrolled: true,
+    currentTier: {
+      name: 'Nível base a',
+      color: '#502727ff',
+      iconUrl: 'https://bq-public-images.s3.amazonaws.com/images/62b2bc41-4397-48a8-bad5-d628d5120ea5/2ae20c64-be76-4c7d-a8d7-4a3e0d338991.png',
+    },
+  },
+  '11122233344': {
+    id: 1003,
+    originalId: '11122233344',
+    name: 'Ana Costa',
+    email: 'ana@email.com',
+    phone: '11777776666',
+    document: '11122233344',
+    isEnrolled: true,
+    currentTier: { name: 'Nível Diamante', color: '#0891b2', iconUrl: null },
+  },
 }
 
 /**
@@ -183,6 +214,48 @@ export const mockRewardsData = {
   2: { id: 2, rewardType: 1, value: 30.00, points: 250, minPurchase: 100 },
   3: { id: 3, rewardType: 0, value: 15, points: 500, minPurchase: 80 },
   4: { id: 4, rewardType: 3, value: 1, points: 0, minPurchase: 0, maxCashbackPercent: 20 },
+  5: {
+    id: 5,
+    title: 'Caneca BonifiQ de brinde',
+    rewardType: 5,
+    points: 0,
+    minPurchase: 0,
+    rewardCanBeCumulative: true,
+    externalProductId: 'P009',
+    productDisplayName: 'Caneca BonifiQ',
+    productDiscountMode: 2,
+    productDiscountValue: 0,
+    productMaxUnitsPerRedeem: 1,
+    productAvailableQuantity: 20,
+  },
+  6: {
+    id: 6,
+    title: '20% na Camiseta Básica',
+    rewardType: 5,
+    points: 150,
+    minPurchase: 0,
+    rewardCanBeCumulative: true,
+    externalProductId: 'P001',
+    productDisplayName: 'Camiseta Básica',
+    productDiscountMode: 0,
+    productDiscountValue: 20,
+    productMaxUnitsPerRedeem: 1,
+    productAvailableQuantity: 50,
+  },
+  7: {
+    id: 7,
+    title: 'Squeeze BonifiQ de brinde',
+    rewardType: 5,
+    points: 0,
+    minPurchase: 0,
+    rewardCanBeCumulative: true,
+    externalProductId: 'P010',
+    productDisplayName: 'Squeeze BonifiQ',
+    productDiscountMode: 2,
+    productDiscountValue: 0,
+    productMaxUnitsPerRedeem: 1,
+    productAvailableQuantity: 15,
+  },
 }
 
 // Pontos dos clientes para validação

@@ -4,6 +4,8 @@
 export function RewardsSummaryModal({ rewardsSummary, isLoading, onConfirm }) {
   const availablePoints = rewardsSummary?.availablePoints || 0
   const availableCashback = rewardsSummary?.availableCashback || 0
+  const customer = rewardsSummary?.customer
+  const currentTier = customer?.currentTier
 
   return (
     <div className="modal-overlay">
@@ -15,6 +17,24 @@ export function RewardsSummaryModal({ rewardsSummary, isLoading, onConfirm }) {
           <div className="rewards-summary">
             {rewardsSummary?.errorMessage && (
               <p style={{ color: '#ef4444' }}>{rewardsSummary.errorMessage}</p>
+            )}
+            {currentTier && (
+              <div
+                className="rewards-summary-tier"
+                style={{ '--tier-color': currentTier.color || '#2563eb' }}
+              >
+                <div className="rewards-summary-tier-icon">
+                  {currentTier.iconUrl ? (
+                    <img src={currentTier.iconUrl} alt="" />
+                  ) : (
+                    <span>★</span>
+                  )}
+                </div>
+                <div className="rewards-summary-tier-info">
+                  <span>Nível atual{customer?.name ? ` de ${customer.name}` : ''}</span>
+                  <strong>{currentTier.name}</strong>
+                </div>
+              </div>
             )}
             <div className="rewards-summary-row">
               <span>Quantidade de pontos</span>

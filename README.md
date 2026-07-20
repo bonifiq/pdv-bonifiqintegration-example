@@ -21,21 +21,30 @@ Esta demo ajuda desenvolvedores de PDVs a entender:
 ## Fluxo Resumido
 
 ```text
-1. Cliente informa CPF no PDV
-   -> POST /rewards/available
+1. Etapa de cliente e produtos
+   -> Vendedor identifica o cliente por CPF
+   -> Monta e confere o carrinho
 
-2. PDV exibe pontos, cashback e recompensas disponíveis
-   -> Usa hasRewards, availablePoints, availableCashback e rewards
+2. Etapa de pagamento e benefícios
+   -> Seleciona pagamento em dinheiro
+   -> Pode informar um desconto manual em reais
+   -> POST /rewards/available com produtos e desconto atuais
+   -> PDV exibe pontos, cashback e recompensas disponíveis
 
-3. Cliente seleciona uma recompensa, se houver
-   -> Opcionalmente valida identidade com challenge/challengevalidate
+3. Cliente seleciona uma recompensa e confirma no popup
+   -> A confirmação inicia imediatamente challenge/challengevalidate quando necessário
+   -> Não existe uma segunda ação separada para resgatar
 
 4. PDV resgata a recompensa selecionada
-   -> POST /rewards/{id}/redeem
+   -> Recompensas comuns: POST /rewards/{id}/redeem
+   -> Brinde/desconto em produto: POST /RewardConfigurations/{id}/product-discount/redeem
+   -> Nesse segundo caso, adiciona ao carrinho uma linha com o preço final do resgate
    -> Guarda o ExternalCode retornado
 
-5. PDV conclui pagamento da venda
+5. Vendedor confere o produto resgatado no carrinho e conclui a venda
    -> Aplica desconto/cashback no total pago
+   -> Se voltar para editar cliente ou produtos, DELETE /rewards/{id} é executado antes de liberar o carrinho
+   -> Produtos adicionados pelo resgate são removidos somente após o estorno confirmado
 
 6. PDV envia a venda para a BonifiQ
    -> POST /orders
@@ -67,6 +76,8 @@ O PDV continua responsável por:
 - conduzir pagamento e fechamento da venda;
 - enviar pedido concluído para a BonifiQ;
 - controlar cancelamentos e estornos no fluxo operacional.
+- localizar no catálogo o `ExternalProductId` de um brinde/desconto em produto e adicioná-lo ao carrinho após o resgate;
+- calcular o preço pago da linha usando o `ProductDiscountTotal` retornado e enviá-lo no pedido.
 
 A BonifiQ retorna:
 
@@ -85,17 +96,17 @@ A BonifiQ retorna:
 
 Via de regra, o campo `OrderTotal` enviado para a BonifiQ deve representar o valor líquido da venda: produtos menos bônus, cupons, descontos, taxas, frete ou outros ajustes aplicáveis no PDV.
 
-Nesta demo, o PDV aplica sempre um `Desconto de Aniversário` de 5% antes de consultar/aplicar benefícios BonifiQ:
+Nesta demo, o vendedor pode informar um desconto manual em reais na etapa de pagamento. O valor é limitado ao subtotal e aplicado antes de consultar/aplicar benefícios BonifiQ:
 
 ```text
 Valor dos produtos
-- Desconto de Aniversário (5%)
+- Desconto manual informado pelo vendedor
 = Base para BonifiQ
 - Cashback ou recompensa BonifiQ
 = OrderTotal enviado para a BonifiQ
 ```
 
-Com isso, cashback e recompensas BonifiQ são calculados sobre a base líquida após o desconto de aniversário, não sobre o valor bruto dos produtos.
+Com isso, cashback e recompensas BonifiQ são calculados sobre a base líquida após o desconto manual, não sobre o valor bruto dos produtos. Por enquanto, a única forma de pagamento disponível na interface e no pedido é dinheiro.
 
 ## Como Executar
 
@@ -127,7 +138,7 @@ Use os seguintes CPFs para testar diferentes cenários:
 
 ## Endpoints Usados
 
-Base URL de produção:
+Base URL de produção para o fluxo POS:
 
 ```text
 https://api.bonifiq.com.br/v1/pvt/POS
@@ -139,6 +150,7 @@ https://api.bonifiq.com.br/v1/pvt/POS
 | `POST` | `/customers/{id}/challenge` | Enviar código OTP para validação do cliente. |
 | `POST` | `/customers/{id}/challengevalidate` | Validar código OTP informado pelo cliente. |
 | `POST` | `/rewards/{id}/redeem` | Resgatar recompensa selecionada. |
+| `POST` | `/v1/pvt/RewardConfigurations/{id}/product-discount/redeem` | Resgatar `RewardType = 5` (brinde ou desconto em produto). Este endpoint parte da raiz `https://api.bonifiq.com.br`, não de `/POS`. |
 | `DELETE` | `/rewards/{id}` | Cancelar/estornar recompensa resgatada. |
 | `POST` | `/orders` | Registrar venda concluída. |
 | `POST` | `/orders/{id}/cancel` | Cancelar pedido registrado. |
@@ -156,7 +168,16 @@ Use quando o cliente informar o CPF e sempre que o valor da compra mudar.
 const rewards = await BonifiQ.getAvailableRewards(
   customerId,
   purchaseValue,
-  discountValue
+  discountValue,
+  cartItems.map(item => ({
+    originalId: item.id,
+    lineId: item.id,
+    title: item.name,
+    quantity: item.quantity,
+    productPrice: item.price,
+    productDiscountPrice: null,
+    isActive: true
+  }))
 )
 ```
 
@@ -164,6 +185,20 @@ Campos importantes da resposta:
 
 ```javascript
 {
+  customer: {
+    id: 6456,
+    originalId: 'melissa.murta@bonifiq.com.br',
+    name: 'Mek mek',
+    email: 'melissa.murta@bonifiq.com.br',
+    phone: '+5531982158778',
+    document: '98765432100',
+    isEnrolled: true,
+    currentTier: {
+      name: 'Nível base a',
+      color: '#502727ff',
+      iconUrl: 'https://.../icone-do-nivel.png'
+    }
+  },
   hasRewards: true,
   availablePoints: 1500,
   cashbackEnabled: true,
@@ -179,10 +214,38 @@ Campos importantes da resposta:
       canUse: true,
       availableCashback: 25.00,
       maxCashbackForCurrentPurchase: 20.00
+    },
+    {
+      id: 5,
+      title: 'Caneca BonifiQ de brinde',
+      rewardType: 5,
+      canUse: true,
+      points: 0,
+      externalProductId: 'P009',
+      productDisplayName: 'Caneca BonifiQ',
+      productDiscountMode: 2,
+      productDiscountValue: 0,
+      productMaxUnitsPerRedeem: 1,
+      productAvailableQuantity: 20
+    },
+    {
+      id: 7,
+      title: 'Squeeze BonifiQ de brinde',
+      rewardType: 5,
+      canUse: true,
+      points: 0,
+      externalProductId: 'P010',
+      productDisplayName: 'Squeeze BonifiQ',
+      productDiscountMode: 2,
+      productDiscountValue: 0,
+      productMaxUnitsPerRedeem: 1,
+      productAvailableQuantity: 15
     }
   ]
 }
 ```
+
+O popup exibido após identificar o cliente usa `customer.currentTier` dessa mesma resposta para mostrar o nome, a cor e o ícone do nível atual. Quando `currentTier` não vier preenchido, o popup continua exibindo apenas pontos e cashback.
 
 Se `hasRewards` for `false`, o PDV deve informar que não há recompensa disponível, mas ainda pode exibir saldos como pontos e cashback.
 
@@ -214,6 +277,50 @@ const externalCode = redeem.data?.externalCode || redeem.result?.externalCode
 
 O `ExternalCode` retornado deve ser enviado no campo `coupon` do pedido para vincular a recompensa à venda.
 
+### Resgatar Brinde ou Desconto em Produto
+
+Recompensas com `rewardType = 5` usam o endpoint dedicado adicionado no PR [bonifiq/loyalty#2310](https://github.com/bonifiq/loyalty/pull/2310). Use o `externalProductId` da listagem para localizar o produto no catálogo do PDV e enviar o preço local.
+
+Na demo, `P009` (Caneca BonifiQ) e `P010` (Squeeze BonifiQ) existem no catálogo interno com `availableForSale: false`. Por isso não aparecem na grade de produtos e só entram no carrinho quando são retornados e resgatados pela BonifiQ.
+
+```javascript
+const product = catalog.find(item => item.id === reward.externalProductId)
+const originalKey = `${reward.id}-${customerId}-${Date.now()}`
+
+const redeem = await BonifiQ.redeemProductDiscountReward(
+  reward.id,
+  customerId,
+  {
+    externalProductId: reward.externalProductId,
+    quantity: 1,
+    productPrice: product.price,
+    productDiscountPrice: null,
+    hasPromotion: false
+  },
+  originalKey
+)
+
+const redeemData = redeem.data || redeem.result
+```
+
+Os modos retornados em `productDiscountMode` são:
+
+| Valor | Modo |
+|---:|---|
+| `0` | Desconto percentual |
+| `1` | Preço final fixo |
+| `2` | Brinde gratuito |
+| `3` | Desconto em valor fixo |
+
+Depois do resgate:
+
+- adicione uma nova linha do produto ao carrinho, mesmo que o mesmo SKU já exista em outra linha;
+- para brinde (`mode = 2`), adicione a linha com preço final zero; nesse modo o Loyalty retorna `productDiscountTotal = 0`;
+- para os demais modos, calcule o preço unitário final subtraindo do preço original o `productDiscountTotal` retornado (dividido pela quantidade resgatada);
+- mantenha essa linha no carrinho para conferência antes de finalizar a venda;
+- envie o preço final no `productPrice` do produto do pedido;
+- envie o `externalCode` no campo escalar `coupon` do pedido, como nas demais recompensas.
+
 ### Registrar Pedido
 
 Use depois que a venda foi paga/concluída no PDV.
@@ -222,8 +329,8 @@ Use depois que a venda foi paga/concluída no PDV.
 
 ```javascript
 const productTotal = 200.00
-const birthdayDiscount = productTotal * 0.05
-const bonifiqBaseTotal = productTotal - birthdayDiscount
+const manualDiscount = 10.00
+const bonifiqBaseTotal = productTotal - manualDiscount
 const cashbackUsed = 20.00
 const totalPaid = bonifiqBaseTotal - cashbackUsed
 
@@ -245,11 +352,12 @@ const orderData = {
     isEnrolled: true
   },
   products: cartItems.map(item => ({
-    originalId: item.id,
+    originalId: item.originalId || item.id,
     title: item.name,
     quantity: item.quantity,
     price: item.price,
     productPrice: item.price,
+    productDiscountPrice: item.originalPrice > item.price ? item.price : null,
     isActive: true
   }))
 }
@@ -286,7 +394,7 @@ Na demo, os pedidos ficam em memória e podem ser cancelados pela tela “Pedido
 - Cliente com cashback disponível.
 - Cliente sem cashback.
 - Cliente sem recompensa disponível para a compra atual.
-- Desconto de aniversário aplicado antes da base BonifiQ.
+- Desconto manual aplicado antes da base BonifiQ.
 - Resgate de recompensa com validação de identidade.
 - Registro da venda na BonifiQ após conclusão.
 - Exibição de confirmação visual de que a venda foi enviada para a BonifiQ.

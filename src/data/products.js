@@ -107,4 +107,32 @@ export const PRODUCTS = [
       parentCategory: { originalId: 'CAT-VEST', name: 'Vestuário', description: 'Roupas em geral' } 
     }
   },
+  {
+    id: 'P009',
+    name: 'Caneca BonifiQ',
+    price: 29.90,
+    icon: '☕',
+    availableForSale: false,
+    brand: { originalId: 'MARCA-BONIFIQ', name: 'BonifiQ' },
+    category: {
+      originalId: 'CAT-BRINDES',
+      name: 'Brindes',
+      description: 'Produtos exclusivos de recompensas',
+      parentCategory: { originalId: 'CAT-ACESS', name: 'Acessórios', description: 'Acessórios diversos' }
+    }
+  },
+  {
+    id: 'P010',
+    name: 'Squeeze BonifiQ',
+    price: 34.90,
+    icon: '🥤',
+    availableForSale: false,
+    brand: { originalId: 'MARCA-BONIFIQ', name: 'BonifiQ' },
+    category: {
+      originalId: 'CAT-BRINDES',
+      name: 'Brindes',
+      description: 'Produtos exclusivos de recompensas',
+      parentCategory: { originalId: 'CAT-ACESS', name: 'Acessórios', description: 'Acessórios diversos' }
+    }
+  },
 ]

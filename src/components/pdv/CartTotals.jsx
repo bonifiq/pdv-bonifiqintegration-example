@@ -3,8 +3,7 @@
  */
 export function CartTotals({
   subtotal,
-  birthdayDiscount,
-  birthdayDiscountPercent,
+  manualDiscount,
   bonifiqBaseTotal,
   bonifiqDiscount,
   bonifiqDiscountLabel,
@@ -18,10 +17,10 @@ export function CartTotals({
         <span>Valor dos produtos</span>
         <span>{formatCurrency(subtotal)}</span>
       </div>
-      {birthdayDiscount > 0 && (
+      {manualDiscount > 0 && (
         <div className="totals-row discount">
-          <span>Desconto de Aniversário ({birthdayDiscountPercent}%)</span>
-          <span>-{formatCurrency(birthdayDiscount)}</span>
+          <span>Desconto manual</span>
+          <span>-{formatCurrency(manualDiscount)}</span>
         </div>
       )}
       <div className="totals-row net-base">

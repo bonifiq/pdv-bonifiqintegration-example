@@ -8,7 +8,7 @@ export function ProductsGrid({ onAddProduct }) {
     <div className="products-section">
       <h2>🛍️ Produtos</h2>
       <div className="products-grid">
-        {PRODUCTS.map(product => (
+        {PRODUCTS.filter(product => product.availableForSale !== false).map(product => (
           <div 
             key={product.id} 
             className="product-card"

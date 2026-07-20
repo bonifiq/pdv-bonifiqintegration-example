@@ -15,15 +15,17 @@
  * 3. Pronto!
  */
 
-const API_BASE_URL = 'https://api.bonifiq.com.br/v1/pvt/POS'
+const PRIVATE_API_BASE_URL = 'https://backend--feature-loy-prodrew.previewqa.bonifique.com.br/v1/pvt'
+const API_BASE_URL = `${PRIVATE_API_BASE_URL}/POS`
+const REDEEM_ORIGIN_PDV = 5
 
 // ===========================================================================
 // CREDENCIAIS - Configure aqui seu usuário e senha
 // ===========================================================================
 // Obtenha suas credenciais no painel da BonifiQ:
 // Menu > Configurações > API > Credenciais Private API
-const API_USERNAME = 'SEU_TOKEN_DE_API'
-const API_PASSWORD = 'SUA_SENHA_DE_API'
+const API_USERNAME = 'APIUSER-VTEXIOTest-66369e6f48af4fc6b4df69f9f7437aeb'
+const API_PASSWORD = 'QZR3QUQGPBQCJV2SC4GQ9N55NMA9LH'
 
 /**
  * Gera o header de autenticação Basic Auth
@@ -110,7 +112,7 @@ function pascalizeKeys(obj) {
  * 
  * Você apenas exibe os dados retornados!
  */
-export async function getAvailableRewards(customerId, purchaseValue, discountValue = 0) {
+export async function getAvailableRewards(customerId, purchaseValue, discountValue = 0, products = []) {
   const response = await fetch(`${API_BASE_URL}/rewards/available`, {
     method: 'POST',
     headers: {
@@ -121,6 +123,7 @@ export async function getAvailableRewards(customerId, purchaseValue, discountVal
       customerId,
       purchaseValue,
       discountValue,
+      products,
     }),
   })
 
@@ -198,8 +201,40 @@ export async function redeemReward(rewardId, customerId, value = null, originalK
       customerId,
       value,
       originalKey,
+      redeemOrigin: REDEEM_ORIGIN_PDV,
     }),
   })
+
+  const data = await response.json()
+  return normalizeKeys(data)
+}
+
+/**
+ * ===========================================================================
+ * POST /RewardConfigurations/{id}/product-discount/redeem
+ * ===========================================================================
+ *
+ * Resgata uma recompensa RewardType=5 no canal offline (PDV).
+ * O identificador deve ser o ExternalProductId retornado em /rewards/available.
+ * Para descontos, envie o preço do produto. Para brindes, o preço é opcional.
+ */
+export async function redeemProductDiscountReward(rewardId, customerId, product, originalKey) {
+  const response = await fetch(
+    `${PRIVATE_API_BASE_URL}/RewardConfigurations/${rewardId}/product-discount/redeem`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': getAuthHeader(),
+      },
+      body: JSON.stringify(pascalizeKeys({
+        customerId,
+        originalKey,
+        redeemOrigin: REDEEM_ORIGIN_PDV,
+        product,
+      })),
+    }
+  )
 
   const data = await response.json()
   return normalizeKeys(data)

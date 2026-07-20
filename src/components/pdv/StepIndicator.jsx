@@ -3,9 +3,8 @@
  */
 export function StepIndicator({ currentStep }) {
   const steps = [
-    { num: 1, label: 'Cliente' },
-    { num: 2, label: 'Produtos' },
-    { num: 3, label: 'Pagamento' },
+    { num: 1, label: 'Cliente e produtos' },
+    { num: 2, label: 'Pagamento e benefícios' },
   ]
 
   return (

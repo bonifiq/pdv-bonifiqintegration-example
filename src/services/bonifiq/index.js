@@ -26,9 +26,9 @@
 // 🔀 ALTERE AQUI PARA MUDAR ENTRE MOCK/PROD:
 // ============================================
 // Para MOCK (demonstração):
- import * as api from './api.mock'
+ //import * as api from './api.mock'
 // Para PRODUÇÃO:
- //import * as api from './api.production'
+ import * as api from './api.production'
 
 // Re-exporta as funções da API selecionada
 export const {
@@ -36,6 +36,7 @@ export const {
   sendChallenge,
   validateChallenge,
   redeemReward,
+  redeemProductDiscountReward,
   cancelReward,
   createOrder,
   cancelOrder,
@@ -49,5 +50,11 @@ export {
   generateOriginalKey,
   formatCurrency,
   isCashbackReward,
+  isProductDiscountReward,
+  isFreeGiftReward,
+  calculateProductRewardUnitPrice,
+  getProductDiscountDescription,
   calculateDiscountLabel,
+  PRODUCT_DISCOUNT_REWARD_TYPE,
+  PRODUCT_DISCOUNT_MODES,
 } from './helpers'

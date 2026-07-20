@@ -4,7 +4,7 @@ import { CUSTOMERS_DATABASE } from '../../data/customers'
 /**
  * Componente de seleção de cliente por CPF
  */
-export function CustomerSelector({ onSelectCustomer, selectedCustomer }) {
+export function CustomerSelector({ onSelectCustomer, selectedCustomer, readOnly = false }) {
   const [document, setDocument] = useState('')
   const [error, setError] = useState('')
 
@@ -33,9 +33,11 @@ export function CustomerSelector({ onSelectCustomer, selectedCustomer }) {
             <div className="customer-doc">CPF: {selectedCustomer.document.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')}</div>
           </div>
         </div>
-        <button className="btn btn-secondary" onClick={() => onSelectCustomer(null)} style={{ marginTop: '8px' }}>
-          Alterar Cliente
-        </button>
+        {!readOnly && (
+          <button className="btn btn-secondary" onClick={() => onSelectCustomer(null)} style={{ marginTop: '8px' }}>
+            Alterar Cliente
+          </button>
+        )}
       </div>
     )
   }

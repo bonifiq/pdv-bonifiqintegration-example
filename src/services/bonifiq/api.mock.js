@@ -25,6 +25,7 @@ import {
   mockCustomerPoints,
   emptyRewardsResponse 
 } from './mockData'
+import { PRODUCT_DISCOUNT_MODES, PRODUCT_DISCOUNT_REWARD_TYPE } from './helpers'
 
 // Simulação de delay de rede
 const MOCK_DELAY = 800
@@ -43,12 +44,13 @@ const completedRedeems = new Map()
  * Consulta as recompensas disponíveis para um cliente
  * Valida o valor mínimo da compra para cada recompensa
  */
-export async function getAvailableRewards(customerId, purchaseValue, discountValue = 0) {
+export async function getAvailableRewards(customerId, purchaseValue, discountValue = 0, products = []) {
   await delay(MOCK_DELAY)
 
   const customerData = mockCustomerPoints[customerId]
+  const customer = mockCustomers[customerId]
   
-  if (!customerData) {
+  if (!customerData || !customer) {
     return emptyRewardsResponse
   }
 
@@ -57,9 +59,14 @@ export async function getAvailableRewards(customerId, purchaseValue, discountVal
     const hasEnoughPoints = customerData.points >= reward.points
     const meetsMinPurchase = purchaseValue >= reward.minPurchase
     
+    const rewardCanBeCumulative = reward.rewardCanBeCumulative ?? true
     let canUse = hasEnoughPoints && meetsMinPurchase
     let availableCashback = 0
     let maxCashbackForCurrentPurchase = 0
+
+    if (discountValue > 0 && !rewardCanBeCumulative) {
+      canUse = false
+    }
     
     // Lógica especial para Cashback
     if (reward.rewardType === 3) {
@@ -79,6 +86,8 @@ export async function getAvailableRewards(customerId, purchaseValue, discountVal
       title = `R$${reward.value.toFixed(2).replace('.', ',')} de desconto`
     } else if (reward.rewardType === 3) {
       title = 'Usar Cashback'
+    } else if (reward.rewardType === PRODUCT_DISCOUNT_REWARD_TYPE) {
+      title = reward.title
     }
 
     // Gera requirements
@@ -102,14 +111,22 @@ export async function getAvailableRewards(customerId, purchaseValue, discountVal
       maxCashbackForCurrentPurchase,
       canUse,
       points: reward.rewardType === 3 ? Math.round(maxCashbackForCurrentPurchase) : reward.points,
-      rewardCanBeCumulative: true,
+      rewardCanBeCumulative,
       minPurchase: reward.minPurchase,
+      externalProductId: reward.externalProductId,
+      productDisplayName: reward.productDisplayName,
+      productDiscountMode: reward.productDiscountMode,
+      productDiscountValue: reward.productDiscountValue,
+      productMaxUnitsPerRedeem: reward.productMaxUnitsPerRedeem,
+      productAvailableQuantity: reward.productAvailableQuantity,
+      productDiscountTotal: 0,
     }
   })
 
   const hasCashback = rewards.some(r => r.isCashback && r.availableCashback > 0)
 
   return {
+    customer,
     hasRewards: rewards.some(r => r.canUse),
     shouldValidateCustomer: true,
     availablePoints: customerData.points,
@@ -118,6 +135,93 @@ export async function getAvailableRewards(customerId, purchaseValue, discountVal
     maxCashbackForCurrentPurchase: rewards.find(r => r.isCashback)?.maxCashbackForCurrentPurchase || 0,
     rewards,
   }
+}
+
+/**
+ * ===========================================================================
+ * POST /RewardConfigurations/{id}/product-discount/redeem
+ * ===========================================================================
+ * Resgata um brinde/desconto em produto no canal offline do mock.
+ */
+export async function redeemProductDiscountReward(rewardId, customerId, product, originalKey) {
+  await delay(MOCK_DELAY)
+
+  if (completedRedeems.has(originalKey)) {
+    return completedRedeems.get(originalKey)
+  }
+
+  const customer = mockCustomers[customerId]
+  const customerBalance = mockCustomerPoints[customerId]
+  const reward = mockRewardsData[rewardId]
+  const quantity = Math.max(1, Number(product?.quantity) || 1)
+
+  if (
+    !customer
+    || !customerBalance
+    || reward?.rewardType !== PRODUCT_DISCOUNT_REWARD_TYPE
+    || product?.externalProductId !== reward.externalProductId
+  ) {
+    return {
+      hasError: true,
+      errorMessage: 'Cliente, recompensa ou produto inválido',
+      data: null,
+    }
+  }
+
+  if (customerBalance.points < reward.points || quantity > (reward.productMaxUnitsPerRedeem || quantity)) {
+    return {
+      hasError: true,
+      errorMessage: 'Saldo ou quantidade indisponível para esta recompensa',
+      data: null,
+    }
+  }
+
+  const productPrice = Number(product.productDiscountPrice ?? product.productPrice)
+  if (reward.productDiscountMode !== PRODUCT_DISCOUNT_MODES.FREE_GIFT && !Number.isFinite(productPrice)) {
+    return {
+      hasError: true,
+      errorMessage: 'O preço do produto é obrigatório para este desconto',
+      data: null,
+    }
+  }
+
+  let unitDiscount = 0
+  switch (reward.productDiscountMode) {
+    case PRODUCT_DISCOUNT_MODES.PERCENT_DISCOUNT:
+      unitDiscount = productPrice * (reward.productDiscountValue / 100)
+      break
+    case PRODUCT_DISCOUNT_MODES.FIXED_FINAL_PRICE:
+      unitDiscount = Math.max(0, productPrice - reward.productDiscountValue)
+      break
+    case PRODUCT_DISCOUNT_MODES.FIXED_DISCOUNT_AMOUNT:
+      unitDiscount = Math.min(productPrice, reward.productDiscountValue)
+      break
+    case PRODUCT_DISCOUNT_MODES.FREE_GIFT:
+      // O contrato do Loyalty retorna zero: o PDV inclui o brinde como linha gratuita.
+      unitDiscount = 0
+      break
+  }
+
+  const result = {
+    hasError: false,
+    errorMessage: null,
+    data: {
+      rewardId: 1000 + Math.floor(Math.random() * 9000),
+      point: {
+        pointId: 2000 + Math.floor(Math.random() * 9000),
+        quantity: -reward.points,
+        metadatas: null,
+      },
+      externalCode: `BNF-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
+      originalKey,
+      coupon: null,
+      externalProductId: reward.externalProductId,
+      productDiscountTotal: Number((unitDiscount * quantity).toFixed(2)),
+    },
+  }
+
+  completedRedeems.set(originalKey, result)
+  return result
 }
 
 /**
