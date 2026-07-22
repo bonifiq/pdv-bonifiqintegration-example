@@ -42,6 +42,28 @@ test('cenário sem OTP resgata e registra pedido com trace', async ({ page }) =>
   await expect(requestBody).toContainText('98765432100')
 })
 
+test('consulta benefícios com valor bruto, desconto separado e casing do contrato', async ({ page }) => {
+  await page.goto('/')
+  await page.getByLabel('Cenário guiado').selectOption('standard')
+  await page.getByRole('button', { name: 'OK' }).click()
+  await page.getByRole('button', { name: /Ir para pagamento/ }).click()
+
+  await page.getByRole('button', { name: /Ver integração/ }).click()
+  await page.getByRole('button', { name: 'Limpar' }).click()
+  await page.getByLabel('Fechar inspetor').click()
+
+  await page.getByLabel('Desconto manual').fill('20')
+  await page.getByRole('button', { name: /Ver integração/ }).click()
+  const trace = page.locator('.trace-event').filter({ hasText: 'Consultar benefícios' })
+  await expect(trace).toHaveCount(1)
+  await trace.locator('.trace-summary').click()
+  const requestBody = trace.locator('pre').first()
+  await expect(requestBody).toContainText('"PurchaseValue": 129.9')
+  await expect(requestBody).toContainText('"DiscountValue": 20')
+  await expect(requestBody).not.toContainText('"purchaseValue"')
+  await expect(requestBody).not.toContainText('"discountValue"')
+})
+
 test('abandono antes do redeem aparece como evento local', async ({ page }) => {
   await page.goto('/')
   await page.getByLabel('Cenário guiado').selectOption('gift')

@@ -1,11 +1,68 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { bonifiqClient } from '../bonifiq/client'
 import { clearIntegrationTrace } from '../bonifiq/trace'
+import { CannotUseReason, RewardType, type AvailableRewardsRequest } from '../bonifiq/types'
 import { useSaleFlow } from './useSaleFlow'
 
-beforeEach(clearIntegrationTrace)
+beforeEach(() => {
+  vi.restoreAllMocks()
+  clearIntegrationTrace()
+})
 
 describe('fluxo completo da venda', () => {
+  it('consulta benefícios com valor bruto e mantém a base líquida local', async () => {
+    let lastRequest: AvailableRewardsRequest | null = null
+    vi.spyOn(bonifiqClient, 'getAvailableRewards').mockImplementation(async request => {
+      lastRequest = request
+      const canUse = request.purchaseValue >= 90
+      return {
+        ok: true,
+        data: {
+          customer: null,
+          rewards: [{
+            id: 90,
+            title: 'Benefício com mínimo de R$ 90',
+            rewardType: RewardType.FixedValueDiscount,
+            value: 10,
+            points: 100,
+            canUse,
+            cannotUseReason: canUse ? CannotUseReason.CanUse : CannotUseReason.MinimumValueNotReached,
+            requirements: 'Válido para compras acima de R$ 90,00',
+            rewardCanBeCumulative: true,
+            isCashback: false,
+            canSelectValue: false,
+            availableCashback: 0,
+            maxCashbackForCurrentPurchase: 0,
+          }],
+          availablePoints: 500,
+          canUseReward: canUse,
+          hasRewards: true,
+          cashbackEnabled: false,
+          availableCashback: 0,
+          maxCashbackForCurrentPurchase: 0,
+          shouldValidateCustomer: false,
+          shouldValidateCustomerSignup: false,
+        },
+      }
+    })
+
+    const { result } = renderHook(() => useSaleFlow())
+    act(() => {
+      result.current.selectCustomer({ document: '12345678900', name: 'Cliente Teste', email: 'teste@example.com', phone: '11999999999' })
+      result.current.addProduct({ id: 'TEST-100', name: 'Produto de R$ 100', priceCents: 10000, icon: '🧪' })
+    })
+    await waitFor(() => expect(result.current.integration.phase).toBe('ready'))
+
+    act(() => result.current.changeManualDiscount(20))
+    await waitFor(() => expect(lastRequest?.discountValue).toBe(20))
+
+    expect(lastRequest).toMatchObject({ purchaseValue: 100, discountValue: 20 })
+    expect(result.current.subtotalCents).toBe(10000)
+    expect(result.current.bonifiqBaseCents).toBe(8000)
+    expect(result.current.integration.rewards?.rewards[0]).toMatchObject({ canUse: true })
+  })
+
   it('resgata brinde e envia ExternalCode como coupon do pedido', async () => {
     const { result } = renderHook(() => useSaleFlow())
     act(() => result.current.applyScenario('gift'))

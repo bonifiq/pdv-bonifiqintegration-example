@@ -44,7 +44,7 @@ export function useSaleFlow() {
     dispatchIntegration({ type: 'REWARDS_LOADING' })
     const result = await bonifiqClient.getAvailableRewards({
       customerId: customer.document,
-      purchaseValue: fromCents(bonifiqBaseCents),
+      purchaseValue: fromCents(subtotalCents),
       discountValue: fromCents(appliedManualDiscountCents),
       products: cartItems.map(item => ({
         originalId: item.originalId || item.id,
@@ -64,7 +64,7 @@ export function useSaleFlow() {
       return
     }
     dispatchIntegration({ type: 'REWARDS_LOADED', rewards: result.data })
-  }, [appliedManualDiscountCents, bonifiqBaseCents, cartItems, customer, integration.redeem])
+  }, [appliedManualDiscountCents, cartItems, customer, integration.redeem, subtotalCents])
 
   const cartSignature = cartItems.map(item => `${item.id}:${item.quantity}:${item.priceCents}`).join('|')
   useEffect(() => {
