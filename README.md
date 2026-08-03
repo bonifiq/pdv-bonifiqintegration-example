@@ -36,9 +36,9 @@ Ao voltar para editar uma venda que já possui resgate, o PDV executa o estorno 
 
 ## O que é autoritativo
 
-**BonifiQ calcula:** elegibilidade, `CanUse`, `Requirements`, pontos, cashback, limites e necessidade de OTP.
+**BonifiQ calcula:** elegibilidade, `CanUse`, `CannotUseReason`, pontos, cashback, limites, necessidade de OTP e aplicabilidade do produto informado em `/available`.
 
-**PDV controla:** cliente, catálogo, carrinho, pagamento, descontos próprios, total líquido, persistência de identificadores e compensações.
+**PDV controla:** cliente, catálogo, carrinho, pagamento, descontos próprios, aplicação financeira de `RewardType=5`, total líquido, persistência de identificadores e compensações.
 
 O PDV não deve reproduzir as regras de elegibilidade da BonifiQ.
 
@@ -74,7 +74,7 @@ VITE_BONIFIQ_API_PASSWORD=...
 
 > **Somente demonstração local:** valores `VITE_*` são incluídos no bundle e ficam visíveis no navegador. Um PDV real deve manter credenciais em backend, serviço local seguro ou cofre de segredos.
 
-O endpoint de `RewardType=5` (`/RewardConfigurations/{id}/product-discount/redeem`) precisa existir no ambiente configurado. Ele está disponível na preview desta feature, mas ainda não consta no Swagger de produção usado como URL padrão acima.
+Todo resgate POS, inclusive `RewardType=5`, usa `POST /POS/rewards/{id}/redeem`. O produto, preço e promoção são enviados somente na consulta `/POS/rewards/available`; o redeem confirma uma unidade e retorna o `ExternalProductId` offline.
 
 Nunca versione `.env.local`. Credenciais que já tenham sido publicadas devem ser rotacionadas.
 

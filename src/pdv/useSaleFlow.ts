@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'r
 import { bonifiqClient } from '../bonifiq/client'
 import { buildChallengeContactRetry } from '../bonifiq/challengeRetry'
 import { integrationFlowReducer, initialIntegrationState } from '../bonifiq/flowReducer'
-import { calculateProductRewardUnitPriceCents, calculateRewardDiscountCents, getProductRewardDescription, isFreeGift, isProductReward, shouldRunCustomerChallenge } from '../bonifiq/rewardRules'
+import { calculateProductRewardDiscountCents, calculateProductRewardUnitPriceCents, calculateRewardDiscountCents, getProductRewardDescription, isFreeGift, isProductReward, shouldRunCustomerChallenge } from '../bonifiq/rewardRules'
 import { DEMO_SCENARIOS, setActiveScenario, type DemoScenarioId } from '../bonifiq/scenarios'
 import { traceLocalEvent } from '../bonifiq/trace'
 import type { AvailableReward, OrderCustomerInput, OrderRequest, OrderResponse, RedeemResponse } from '../bonifiq/types'
@@ -128,22 +128,25 @@ export function useSaleFlow() {
     resetReward()
   }
 
-  const findCatalogProduct = (reward: AvailableReward): CatalogProduct | undefined => PRODUCTS.find(product => (
-    product.id.toLowerCase() === String(reward.externalProductId || '').toLowerCase()
+  const findCatalogProduct = (externalProductId?: string | null): CatalogProduct | undefined => PRODUCTS.find(product => (
+    product.id.toLowerCase() === String(externalProductId || '').toLowerCase()
   ))
 
-  const buildRewardCartItem = (reward: AvailableReward, redeem: RedeemResponse, product: CatalogProduct): CartItem => {
+  const findEligibleCartItem = (externalProductId?: string | null): CartItem | undefined => cartItems.find(item => (
+    !item.isRewardProduct && (item.originalId || item.id).toLowerCase() === String(externalProductId || '').toLowerCase()
+  ))
+
+  const buildRewardCartItem = (reward: AvailableReward, redeem: RedeemResponse, product: CatalogProduct, effectiveUnitPriceCents: MoneyCents): CartItem => {
     const quantity = 1
-    const priceCents = calculateProductRewardUnitPriceCents(reward, redeem, product.priceCents, quantity)
+    const priceCents = calculateProductRewardUnitPriceCents(reward, effectiveUnitPriceCents)
     return {
       ...product,
-      id: `reward-${redeem.rewardId}-${redeem.externalProductId || reward.externalProductId}`,
-      originalId: redeem.externalProductId || reward.externalProductId || product.id,
+      id: `reward-${redeem.rewardId}-${redeem.externalProductId}`,
+      originalId: redeem.externalProductId || product.id,
       name: reward.productDisplayName || product.name,
       quantity,
       priceCents,
-      originalPriceCents: product.priceCents,
-      productDiscountTotalCents: isFreeGift(reward) ? product.priceCents : toCents(redeem.productDiscountTotal),
+      originalPriceCents: effectiveUnitPriceCents,
       isRewardProduct: true,
       rewardLabel: getProductRewardDescription(reward),
     }
@@ -151,39 +154,65 @@ export function useSaleFlow() {
 
   const processRedeem = useCallback(async (reward: AvailableReward, cashbackCents: MoneyCents, originalKey: string) => {
     dispatchIntegration({ type: 'REDEEMING' })
-    const catalogProduct = isProductReward(reward) ? findCatalogProduct(reward) : undefined
-    if (isProductReward(reward) && !catalogProduct) {
-      dispatchIntegration({ type: 'ERROR', message: 'O SKU retornado pela BonifiQ não existe no catálogo deste PDV.', retryAction: 'redeem' })
+    const expectedProductId = isProductReward(reward) ? reward.externalProductId : null
+    const catalogProduct = isProductReward(reward) ? findCatalogProduct(expectedProductId) : undefined
+    const eligibleCartItem = isProductReward(reward) && !isFreeGift(reward) ? findEligibleCartItem(expectedProductId) : undefined
+    const effectiveUnitPriceCents = isProductReward(reward)
+      ? isFreeGift(reward) ? catalogProduct?.priceCents : eligibleCartItem?.priceCents
+      : undefined
+    if (isProductReward(reward) && (!expectedProductId || !catalogProduct || effectiveUnitPriceCents === undefined)) {
+      dispatchIntegration({ type: 'CLEAR_REWARD' })
+      dispatchIntegration({ type: 'ERROR', message: 'O produto validado pela BonifiQ não pode mais ser aplicado ao carrinho atual. Consulte os benefícios novamente.', retryAction: 'rewards' })
       return
     }
 
-    const result = isProductReward(reward)
-      ? await bonifiqClient.redeemProductDiscountReward({
-          rewardId: reward.id,
-          customerId: customer!.document,
-          originalKey,
-          product: {
-            externalProductId: reward.externalProductId!,
-            quantity: 1,
-            productPrice: fromCents(catalogProduct!.priceCents),
-            productDiscountPrice: null,
-            hasPromotion: false,
-          },
-        })
-      : await bonifiqClient.redeemReward({
-          rewardId: reward.id,
-          customerId: customer!.document,
-          originalKey,
-          value: reward.isCashback ? fromCents(cashbackCents) : null,
-        })
+    const result = await bonifiqClient.redeemReward({
+      rewardId: reward.id,
+      customerId: customer!.document,
+      originalKey,
+      value: reward.isCashback ? fromCents(cashbackCents) : null,
+    })
 
     if (!result.ok) {
       dispatchIntegration({ type: 'ERROR', message: result.error.friendlyMessage, retryAction: 'redeem' })
       return
     }
-    if (isProductReward(reward) && catalogProduct) setCartItems(previous => [...previous, buildRewardCartItem(reward, result.data, catalogProduct)])
+    if (isProductReward(reward)) {
+      const returnedProductId = result.data.externalProductId?.trim()
+      if (!returnedProductId || returnedProductId.toLowerCase() !== expectedProductId!.trim().toLowerCase()) {
+        dispatchIntegration({ type: 'REWARD_APPLIED', redeem: result.data })
+        dispatchIntegration({ type: 'REWARD_CANCELLING' })
+        const cancellation = await bonifiqClient.cancelReward(result.data.rewardId)
+        if (!cancellation.ok) {
+          dispatchIntegration({ type: 'ERROR', message: `A configuração do produto mudou após a consulta e o estorno automático falhou: ${cancellation.error.friendlyMessage}`, retryAction: 'cancel-reward' })
+          return
+        }
+        dispatchIntegration({ type: 'CLEAR_REWARD' })
+        dispatchIntegration({ type: 'ERROR', message: 'A configuração do produto mudou após a consulta. O resgate foi estornado; consulte os benefícios novamente.', retryAction: 'rewards' })
+        return
+      }
+
+      const priceCents = calculateProductRewardUnitPriceCents(reward, effectiveUnitPriceCents!)
+      traceLocalEvent({
+        operation: 'Aplicar benefício de produto no carrinho',
+        reason: 'A BonifiQ registra o resgate e devolve o SKU offline; o cálculo e a aplicação financeira são responsabilidade do PDV.',
+        context: {
+          externalProductId: returnedProductId,
+          quantity: 1,
+          productDiscountMode: reward.productDiscountMode,
+          productDiscountValue: reward.productDiscountValue,
+          effectiveUnitPrice: fromCents(effectiveUnitPriceCents!),
+        },
+        result: {
+          finalUnitPrice: fromCents(priceCents),
+          discountAmount: fromCents(calculateProductRewardDiscountCents(reward, effectiveUnitPriceCents!)),
+          separateCartLine: true,
+        },
+      })
+      setCartItems(previous => [...previous, buildRewardCartItem(reward, result.data, catalogProduct!, effectiveUnitPriceCents!)])
+    }
     dispatchIntegration({ type: 'REWARD_APPLIED', redeem: result.data })
-  }, [customer])
+  }, [cartItems, customer])
 
   const createChallenge = useCallback(async (reward: AvailableReward, cashbackCents: MoneyCents, transactionId: string, originalKey: string) => {
     dispatchIntegration({ type: 'CHALLENGE_SENDING' })
@@ -347,6 +376,7 @@ export function useSaleFlow() {
       dispatchIntegration({ type: 'CHALLENGE_READY', challenge: integration.challenge })
       return
     }
+    if (integration.retryAction === 'cancel-reward' && integration.redeem) return
     dispatchIntegration({ type: 'CLEAR_REWARD' })
   }
 

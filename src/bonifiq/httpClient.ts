@@ -21,7 +21,6 @@ import {
   buildChallengeValidationBody,
   buildOrderBody,
   buildPartialCancelBody,
-  buildProductRedeemBody,
   buildRedeemBody,
 } from './wirePayloads'
 
@@ -142,7 +141,6 @@ export function mapAvailableRewards(value: unknown): AvailableRewardsResponse {
       productAvailableQuantity: reward.productAvailableQuantity === null || reward.productAvailableQuantity === undefined
         ? null
         : Number(reward.productAvailableQuantity),
-      productDiscountTotal: Number(reward.productDiscountTotal || 0),
     }
   })
 
@@ -171,7 +169,6 @@ export function mapRedeemResponse(value: unknown): RedeemResponse {
     externalCode: String(body.externalCode || ''),
     originalKey: String(body.originalKey || ''),
     externalProductId: optionalString(body.externalProductId),
-    productDiscountTotal: Number(body.productDiscountTotal || 0),
     coupon: body.coupon ?? null,
     point: point ? {
       pointId: Number(point.pointId),
@@ -327,10 +324,6 @@ export function createHttpBonifiqClient(config: BonifiqConfig): BonifiqClient {
       const response = await request(`/POS/rewards/${requestData.rewardId}/redeem`, 'POST', buildRedeemBody(requestData))
       return unwrapBody(response.body, response.status, mapRedeemResponse)
     }),
-    redeemProductDiscountReward: requestData => safely(async () => {
-      const response = await request(`/RewardConfigurations/${requestData.rewardId}/product-discount/redeem`, 'POST', buildProductRedeemBody(requestData))
-      return unwrapBody(response.body, response.status, mapRedeemResponse)
-    }),
     cancelReward: rewardId => safely(async () => {
       const response = await request(`/POS/rewards/${rewardId}`, 'DELETE')
       const result = unwrapBody(response.body, response.status, mapRewardCancellationResponse)
@@ -366,7 +359,6 @@ export function createMissingConfigurationClient(message: string): BonifiqClient
     sendChallenge: failure,
     validateChallenge: failure,
     redeemReward: failure,
-    redeemProductDiscountReward: failure,
     cancelReward: failure,
     createOrder: failure,
     cancelOrder: failure,

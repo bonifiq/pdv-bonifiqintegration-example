@@ -1,6 +1,6 @@
 import { fromCents, toCents } from '../pdv/money'
 import type { MoneyCents } from '../pdv/types'
-import { CannotUseReason, ProductDiscountMode, RewardType, type AvailableReward, type AvailableRewardsResponse, type RedeemResponse } from './types'
+import { CannotUseReason, ProductDiscountMode, RewardType, type AvailableReward, type AvailableRewardsResponse } from './types'
 
 export const isProductReward = (reward?: AvailableReward | null): boolean => reward?.rewardType === RewardType.ProductDiscount
 export const isFreeGift = (reward?: AvailableReward | null): boolean => isProductReward(reward) && reward?.productDiscountMode === ProductDiscountMode.FreeGift
@@ -15,11 +15,29 @@ export function calculateRewardDiscountCents(reward: AvailableReward | null, cas
   return Math.min(purchaseCents, toCents(reward.value))
 }
 
-export function calculateProductRewardUnitPriceCents(reward: AvailableReward, redeem: RedeemResponse, originalUnitPriceCents: MoneyCents, quantity = 1): MoneyCents {
-  if (isFreeGift(reward)) return 0
-  const unitDiscountCents = Math.round(toCents(redeem.productDiscountTotal) / Math.max(1, quantity))
-  return Math.max(0, originalUnitPriceCents - unitDiscountCents)
+export function calculateProductRewardUnitPriceCents(reward: AvailableReward, effectiveUnitPriceCents: MoneyCents): MoneyCents {
+  const basePriceCents = Math.max(0, Math.round(effectiveUnitPriceCents))
+  const configuredValue = Number(reward.productDiscountValue || 0)
+
+  switch (reward.productDiscountMode) {
+    case ProductDiscountMode.PercentDiscount: {
+      const percent = Math.max(0, Math.min(100, configuredValue))
+      return Math.max(0, basePriceCents - Math.round(basePriceCents * percent / 100))
+    }
+    case ProductDiscountMode.FixedFinalPrice:
+      return Math.min(basePriceCents, Math.max(0, toCents(configuredValue)))
+    case ProductDiscountMode.FreeGift:
+      return 0
+    case ProductDiscountMode.FixedDiscountAmount:
+      return Math.max(0, basePriceCents - Math.max(0, toCents(configuredValue)))
+    default:
+      return basePriceCents
+  }
 }
+
+export const calculateProductRewardDiscountCents = (reward: AvailableReward, effectiveUnitPriceCents: MoneyCents): MoneyCents => (
+  Math.max(0, effectiveUnitPriceCents - calculateProductRewardUnitPriceCents(reward, effectiveUnitPriceCents))
+)
 
 export function getProductRewardDescription(reward: AvailableReward): string {
   const value = Number(reward.productDiscountValue || 0)
@@ -42,7 +60,7 @@ const unavailableReasons: Record<CannotUseReason, string> = {
   [CannotUseReason.MinimumPurchasePercentNotReached]: 'Percentual mínimo não atingido',
   [CannotUseReason.CustomerNotEnrolled]: 'Cliente não inscrito no programa',
   [CannotUseReason.CannotUseCumulativeDiscount]: 'Não cumulativo com outro desconto',
-  [CannotUseReason.ProductRewardNoApplicableProduct]: 'Produto elegível ausente no carrinho',
+  [CannotUseReason.ProductRewardNoApplicableProduct]: 'Produto elegível ausente, em promoção não cumulativa ou sem benefício aplicável',
   [CannotUseReason.ProductRewardUsageLimitReached]: 'Limite de uso atingido',
   [CannotUseReason.ProductRewardRequiresCheckout]: 'Disponível apenas no checkout online',
   [CannotUseReason.ProductRewardInvalidConfiguration]: 'Configuração de produto inválida',

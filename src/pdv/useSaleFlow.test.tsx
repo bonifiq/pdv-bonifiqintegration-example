@@ -79,6 +79,22 @@ describe('fluxo completo da venda', () => {
     act(() => result.current.newSale())
   })
 
+  it('aplica desconto de produto localmente em uma linha separada de uma unidade', async () => {
+    const { result } = renderHook(() => useSaleFlow())
+    act(() => result.current.applyScenario('product-discount'))
+    await waitFor(() => expect(result.current.integration.phase).toBe('ready'), { timeout: 3000 })
+    const reward = result.current.integration.rewards!.rewards.find(item => item.id === 6)!
+    await act(() => result.current.confirmReward(reward, null))
+    await act(() => result.current.validateCode(result.current.integration.challenge!.code!))
+
+    expect(result.current.integration.phase).toBe('reward-applied')
+    expect(result.current.integration.redeem).toMatchObject({ externalProductId: 'P001' })
+    expect(result.current.integration.redeem).not.toHaveProperty('productDiscountTotal')
+    expect(result.current.cartItems.filter(item => item.originalId === 'P001')).toEqual(expect.arrayContaining([
+      expect.objectContaining({ isRewardProduct: true, quantity: 1, originalPriceCents: 4990, priceCents: 3992 }),
+    ]))
+  })
+
   it('pula OTP quando ShouldValidateCustomer=false', async () => {
     const { result } = renderHook(() => useSaleFlow())
     act(() => result.current.applyScenario('no-validation'))

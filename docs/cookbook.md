@@ -14,11 +14,12 @@ curl --request POST \
     "PurchaseValue": 129.90,
     "DiscountValue": 0,
     "Products": [{
-      "OriginalId": "P002",
-      "LineId": "P002",
-      "Title": "Calça Jeans",
+      "OriginalId": "P001",
+      "LineId": "P001",
+      "Title": "Camiseta Básica",
       "Quantity": 1,
-      "ProductPrice": 129.90,
+      "ProductPrice": 49.90,
+      "ProductDiscountPrice": 39.90,
       "IsActive": true
     }]
   }'
@@ -36,15 +37,20 @@ Resposta relevante:
   "ShouldValidateCustomer": true,
   "AvailablePoints": 1500,
   "Rewards": [{
-    "Id": 5,
+    "Id": 6,
     "RewardType": 5,
     "CanUse": true,
-    "ExternalProductId": "P009",
-    "ProductDisplayName": "Caneca BonifiQ",
-    "ProductDiscountMode": 2
+    "CannotUseReason": 0,
+    "ExternalProductId": "P001",
+    "ProductDisplayName": "Camiseta Básica",
+    "ProductDiscountMode": 0,
+    "ProductDiscountValue": 20,
+    "ProductMaxUnitsPerRedeem": 2
   }]
 }
 ```
+
+`PurchaseValue` é o total bruto. `DiscountValue` leva descontos próprios do PDV separadamente. Para `RewardType=5`, `Products` é obrigatório na prática para modos diferentes de `FreeGift`: a BonifiQ usa `ProductDiscountPrice ?? ProductPrice` como preço efetivo e bloqueia promoção quando a recompensa não é cumulativa. Mesmo que `ProductMaxUnitsPerRedeem` seja maior, o redeem POS desta versão confirma exatamente uma unidade.
 
 ## Cliente TypeScript
 
@@ -83,7 +89,7 @@ curl --request POST \
 
 Pule essas chamadas somente quando `ShouldValidateCustomer=false` **e** `ShouldValidateCustomerSignup=false`. Quando a validação for de cadastro, envie também `Document`, `Name` e, se disponíveis, `Email` e `Phone` no challenge.
 
-## Recompensa comum
+## Resgatar qualquer recompensa
 
 ```bash
 curl --request POST \
@@ -97,39 +103,45 @@ curl --request POST \
   }'
 ```
 
-Para cashback, `Value` recebe o valor escolhido, limitado por `MaxCashbackForCurrentPurchase`.
+Para cashback, `Value` recebe o valor escolhido, limitado por `MaxCashbackForCurrentPurchase`. Para os demais tipos, inclusive `RewardType=5`, omita `Value`.
 
 ## Brinde ou desconto em produto
 
-`RewardType=5` usa o endpoint fora de `/POS`:
+`RewardType=5` usa exatamente o mesmo endpoint POS. Não envie produto, quantidade, preço, promoção ou `ForceGenerateCoupon` no redeem:
 
 ```bash
 curl --request POST \
-  --url '<BONIFIQ_BASE_URL>/RewardConfigurations/5/product-discount/redeem' \
+  --url '<BONIFIQ_BASE_URL>/POS/rewards/5/redeem' \
   --header 'Authorization: Basic <CREDENCIAL_BASE64>' \
   --header 'Content-Type: application/json' \
   --data '{
-    "RewardConfigurationId":5,
     "CustomerId":"12345678900",
     "OriginalKey":"PDV-REWARD-5-123",
-    "RedeemOrigin":5,
-    "Product":{
-      "ExternalProductId":"P009",
-      "Quantity":1,
-      "ProductPrice":29.90,
-      "HasPromotion":false
-    }
+    "RedeemOrigin":5
   }'
+```
+
+Resposta POS relevante:
+
+```json
+{
+  "Result": {
+    "RewardId": 123,
+    "ExternalCode": "BNF-EXTERNAL-CODE",
+    "OriginalKey": "PDV-REWARD-5-123",
+    "ExternalProductId": "P001"
+  }
+}
 ```
 
 | `ProductDiscountMode` | Significado | Preço final da linha |
 |---:|---|---|
-| `0` | Percentual | Preço local menos `ProductDiscountTotal / Quantity` |
-| `1` | Preço final fixo | Preço local menos `ProductDiscountTotal / Quantity` |
-| `2` | Brinde | Zero; o contrato retorna desconto total zero nesse modo |
-| `3` | Valor fixo | Preço local menos `ProductDiscountTotal / Quantity` |
+| `0` | Percentual | `preço efetivo - arredondar(preço efetivo × valor / 100)` |
+| `1` | Preço final fixo | `ProductDiscountValue` |
+| `2` | Brinde | Zero |
+| `3` | Valor fixo | `máximo(0, preço efetivo - ProductDiscountValue)` |
 
-Adicione uma linha separada ao carrinho, mesmo que o SKU já exista. Produtos de brinde podem estar ocultos da venda direta, mas precisam existir no catálogo para serem localizados por `ExternalProductId`.
+O POS não recebe `ProductDiscountTotal`: esse campo pertence somente ao fluxo de checkout online. O PDV calcula o valor financeiro em centavos usando os dados de `/available`, valida o `ExternalProductId` devolvido e adiciona uma linha separada de quantidade `1`. Produtos de brinde podem estar ocultos da venda direta, mas precisam existir no catálogo local.
 
 ## Registrar pedido
 

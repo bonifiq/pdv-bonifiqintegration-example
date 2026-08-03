@@ -30,14 +30,14 @@ describe('fronteira HTTP', () => {
     if (result.ok) expect(result.data.sentBySms).toBe(true)
   })
 
-  it('usa rota e verbo do contrato nos nove métodos', async () => {
+  it('usa rota e verbo do contrato nos oito métodos', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       status: 200,
       json: async () => ({
         Success: true,
         SentBySMS: true,
         Rewards: [],
-        Result: { RewardId: 10, Id: 10, ExternalCode: 'EXT', OriginalKey: 'KEY', ProductDiscountTotal: 0, IsCanceled: true, RedeemDate: '2026-07-21T00:00:00.000Z' },
+        Result: { RewardId: 10, Id: 10, ExternalCode: 'EXT', OriginalKey: 'KEY', ExternalProductId: 'P1', IsCanceled: true, RedeemDate: '2026-07-21T00:00:00.000Z' },
       }),
     })
     vi.stubGlobal('fetch', fetchMock)
@@ -46,8 +46,7 @@ describe('fronteira HTTP', () => {
     await client.getAvailableRewards({ customerId: 'a/b', purchaseValue: 10, discountValue: 0, products: [] })
     await client.sendChallenge({ customerId: 'a/b', transactionId: 'T1' })
     await client.validateChallenge({ customerId: 'a/b', transactionId: 'T1', code: '1234' })
-    await client.redeemReward({ rewardId: 1, customerId: 'a/b', originalKey: 'K1' })
-    await client.redeemProductDiscountReward({ rewardId: 5, customerId: 'a/b', originalKey: 'K2', product: { externalProductId: 'P1', quantity: 1, productPrice: 10, hasPromotion: false } })
+    await client.redeemReward({ rewardId: 5, customerId: 'a/b', originalKey: 'K1' })
     await client.cancelReward(10)
     await client.createOrder({
       originalId: 'O/1', orderPlacementDate: '2026-07-21T00:00:00.000Z', orderCompletedDate: '2026-07-21T00:00:00.000Z',
@@ -67,14 +66,18 @@ describe('fronteira HTTP', () => {
       ['https://example.test/v1/pvt/POS/rewards/available', 'POST'],
       ['https://example.test/v1/pvt/POS/customers/a%2Fb/challenge', 'POST'],
       ['https://example.test/v1/pvt/POS/customers/a%2Fb/challengevalidate', 'POST'],
-      ['https://example.test/v1/pvt/POS/rewards/1/redeem', 'POST'],
-      ['https://example.test/v1/pvt/RewardConfigurations/5/product-discount/redeem', 'POST'],
+      ['https://example.test/v1/pvt/POS/rewards/5/redeem', 'POST'],
       ['https://example.test/v1/pvt/POS/rewards/10', 'DELETE'],
       ['https://example.test/v1/pvt/POS/orders', 'POST'],
       ['https://example.test/v1/pvt/POS/orders/O%2F1/cancel', 'POST'],
       ['https://example.test/v1/pvt/POS/O%2F1/partialcancel', 'POST'],
     ])
-    expect(JSON.parse(String((fetchMock.mock.calls[8][1] as RequestInit).body))).toEqual({
+    expect(JSON.parse(String((fetchMock.mock.calls[3][1] as RequestInit).body))).toEqual({
+      CustomerId: 'a/b',
+      OriginalKey: 'K1',
+      RedeemOrigin: 5,
+    })
+    expect(JSON.parse(String((fetchMock.mock.calls[7][1] as RequestInit).body))).toEqual({
       ValueToRefund: 5,
       CancelKey: 'C1',
       Products: [{ OriginalId: 'P1', ValueToRefund: 5 }],
@@ -82,17 +85,16 @@ describe('fronteira HTTP', () => {
     })
   })
 
-  it('mapeia os outputs dos nove métodos conforme o contrato', async () => {
+  it('mapeia os outputs dos oito métodos conforme o contrato', async () => {
     const responses = [
       {
         Customer: { Id: 1, OriginalId: '123', Name: 'Maria', Email: 'maria@example.test', Phone: null, Document: '123', IsEnrolled: true, CurrentTier: { Name: 'Ouro', Color: '#fff', IconUrl: 'tier.png' } },
-        Rewards: [{ Id: 5, Title: 'Brinde', RewardType: 5, Value: 0, CanUse: true, Points: 100, RewardCanBeCumulative: true, ExternalProductId: 'P1', ProductDiscountTotal: 10 }],
+        Rewards: [{ Id: 5, Title: 'Brinde', RewardType: 5, Value: 0, CanUse: true, Points: 100, RewardCanBeCumulative: true, ExternalProductId: 'P1', ProductDiscountMode: 2, ProductDiscountValue: 0 }],
         HasRewards: true, ShouldValidateCustomer: true, ShouldValidateCustomerSignup: true, AvailablePoints: 500,
       },
       { Success: true, SentBySMS: true, SentByEmail: false, ShouldInformPhone: false, ShouldInformEmail: true, TransactionId: 'T1', Code: '1234' },
       { Success: true, TransactionId: 'T1', FriendlyErrorMessage: null },
-      { Result: { RewardId: 10, ExternalCode: 'EXT-1', OriginalKey: 'K1', Point: { PointId: 20, Quantity: -100, Metadatas: [{ Name: 'origin', Value: 'pdv' }] } } },
-      { Result: { RewardId: 11, ExternalCode: 'EXT-2', OriginalKey: 'K2', ExternalProductId: 'P1', ProductDiscountTotal: 10, Point: { PointId: 21, Quantity: -100 } } },
+      { Result: { RewardId: 11, ExternalCode: 'EXT-2', OriginalKey: 'K2', ExternalProductId: 'P1', Point: { PointId: 21, Quantity: -100, Metadatas: [{ Name: 'origin', Value: 'pdv' }] } } },
       { Result: { Id: 10, Customer: { OriginalId: '123' }, ExternalCode: 'EXT-1', CashValue: null, IsCanceled: true, RedeemDate: '2026-07-21T00:00:00.000Z', Points: { Id: 30, Points: 100, Type: 1, EventKey: 'K1' } } },
       { Result: { Id: 40, OriginalId: 'O1', OrderTotal: 90, Coupon: 'EXT-2', EstimatedBonus: { GenerateBonus: true, EstimatedPoints: 90, EstimatedCashback: 4.5, EstimatedCashbackFormatted: 'R$ 4,50' } } },
       { Result: { isCanceled: true, UpdatedAt: '2026-07-21T00:00:00.000Z', Status: 3, RefundErrorDetails: null } },
@@ -104,8 +106,7 @@ describe('fronteira HTTP', () => {
     const available = await client.getAvailableRewards({ customerId: '123', purchaseValue: 100, discountValue: 0, products: [] })
     const challenge = await client.sendChallenge({ customerId: '123', transactionId: 'T1' })
     const validation = await client.validateChallenge({ customerId: '123', transactionId: 'T1', code: '1234' })
-    const redeem = await client.redeemReward({ rewardId: 1, customerId: '123', originalKey: 'K1' })
-    const productRedeem = await client.redeemProductDiscountReward({ rewardId: 5, customerId: '123', originalKey: 'K2', product: { externalProductId: 'P1', quantity: 1, productPrice: 100, hasPromotion: false } })
+    const productRedeem = await client.redeemReward({ rewardId: 5, customerId: '123', originalKey: 'K2' })
     const rewardCancel = await client.cancelReward(10)
     const order = await client.createOrder({
       originalId: 'O1', orderPlacementDate: '2026-07-21T00:00:00.000Z', orderCompletedDate: '2026-07-21T00:00:00.000Z',
@@ -117,10 +118,11 @@ describe('fronteira HTTP', () => {
     const partialCancel = await client.partialCancelOrder('O1', { valueToRefund: 9, cancelKey: 'C1' })
 
     expect(available.ok && available.data).toMatchObject({ customer: { id: 1, currentTier: { iconUrl: 'tier.png' } }, shouldValidateCustomerSignup: true, rewards: [{ externalProductId: 'P1' }] })
+    if (available.ok) expect(available.data.rewards[0]).not.toHaveProperty('productDiscountTotal')
     expect(challenge.ok && challenge.data).toMatchObject({ success: true, sentBySms: true, shouldInformEmail: true, code: '1234' })
     expect(validation.ok && validation.data).toEqual({ transactionId: 'T1', success: true, friendlyErrorMessage: null })
-    expect(redeem.ok && redeem.data).toMatchObject({ rewardId: 10, point: { pointId: 20, quantity: -100, metadatas: [{ name: 'origin', value: 'pdv' }] } })
-    expect(productRedeem.ok && productRedeem.data).toMatchObject({ rewardId: 11, externalProductId: 'P1', productDiscountTotal: 10 })
+    expect(productRedeem.ok && productRedeem.data).toMatchObject({ rewardId: 11, externalProductId: 'P1', point: { pointId: 21, quantity: -100, metadatas: [{ name: 'origin', value: 'pdv' }] } })
+    if (productRedeem.ok) expect(productRedeem.data).not.toHaveProperty('productDiscountTotal')
     expect(rewardCancel.ok && rewardCancel.data).toMatchObject({ id: 10, isCanceled: true, points: { id: 30, eventKey: 'K1' } })
     expect(order.ok && order.data).toMatchObject({ id: 40, originalId: 'O1', estimatedBonus: { generateBonus: true, estimatedPoints: 90, estimatedCashback: 4.5 } })
     if (order.ok) expect(order.data).not.toHaveProperty('pointsEarned')

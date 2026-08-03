@@ -90,7 +90,6 @@ export interface AvailableReward {
   productDiscountValue?: number | null
   productMaxUnitsPerRedeem?: number | null
   productAvailableQuantity?: number | null
-  productDiscountTotal?: number
 }
 
 export interface AvailableRewardsRequest {
@@ -150,14 +149,6 @@ export interface ChallengeValidationRequest {
   code: string
 }
 
-export interface RedeemProductInput {
-  externalProductId: string
-  quantity: number
-  productPrice?: number | null
-  productDiscountPrice?: number | null
-  hasPromotion: boolean
-}
-
 export interface RedeemRequest {
   rewardId: number
   customerId: string
@@ -165,16 +156,11 @@ export interface RedeemRequest {
   value?: number | null
 }
 
-export interface ProductRedeemRequest extends Omit<RedeemRequest, 'value'> {
-  product: RedeemProductInput
-}
-
 export interface RedeemResponse {
   rewardId: number
   externalCode: string
   originalKey: string
   externalProductId?: string | null
-  productDiscountTotal: number
   coupon?: unknown | null
   point?: {
     pointId: number
@@ -316,7 +302,6 @@ export interface BonifiqClient {
   sendChallenge(request: ChallengeRequest): Promise<ApiResult<ChallengeResponse>>
   validateChallenge(request: ChallengeValidationRequest): Promise<ApiResult<ChallengeValidationResponse>>
   redeemReward(request: RedeemRequest): Promise<ApiResult<RedeemResponse>>
-  redeemProductDiscountReward(request: ProductRedeemRequest): Promise<ApiResult<RedeemResponse>>
   cancelReward(rewardId: number): Promise<ApiResult<RewardCancellationResponse>>
   createOrder(request: OrderRequest): Promise<ApiResult<OrderResponse>>
   cancelOrder(orderId: string, cancelledDate: string, orderStatus: string): Promise<ApiResult<OrderCancellationResponse>>

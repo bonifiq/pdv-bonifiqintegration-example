@@ -8,5 +8,8 @@ export default defineConfig({
     setupFiles: ['./src/test/setup.ts'],
     restoreMocks: true,
     exclude: ['tests/e2e/**', 'node_modules/**', 'dist/**'],
+    env: {
+      VITE_BONIFIQ_MODE: 'mock',
+    },
   },
 })

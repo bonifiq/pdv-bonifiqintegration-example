@@ -32,7 +32,7 @@ function App() {
   return shell(<>
     <div className="pdv-actions-bar"><button className="btn btn-secondary" onClick={sale.viewOrders}>Pedidos feitos ({sale.orders.length})</button></div>
     <StepIndicator currentStep={sale.currentStep} />
-    {globalError && <IntegrationNotice message={globalError} canRetry={Boolean(sale.integration.retryAction)} onRetry={() => void sale.retryIntegration()} onDismiss={sale.dismissIntegrationError} />}
+    {globalError && <IntegrationNotice message={globalError} canRetry={Boolean(sale.integration.retryAction)} canDismiss={sale.integration.retryAction !== 'cancel-reward'} onRetry={() => void sale.retryIntegration()} onDismiss={sale.dismissIntegrationError} />}
 
     {sale.currentStep === 1 ? <div className="pdv-layout sale-setup-layout">
       <ProductsGrid onAddProduct={sale.addProduct} />
@@ -54,7 +54,7 @@ function App() {
         <PaymentSection subtotalCents={sale.subtotalCents} manualDiscountCents={sale.appliedManualDiscountCents} totalCents={sale.totalCents} onManualDiscountChange={sale.changeManualDiscount} disabled={sale.isBusy || Boolean(sale.integration.redeem)} />
         <BonifiQSection rewardsData={sale.integration.rewards} loading={sale.integration.phase === 'loading-rewards'} selectedReward={sale.integration.selectedReward} catalogProducts={PRODUCTS} onConfirmReward={sale.confirmReward} isRedeemed={Boolean(sale.integration.redeem)} disabled={sale.isBusy || Boolean(sale.integration.redeem)} />
         <CartTotals subtotalCents={sale.subtotalCents} manualDiscountCents={sale.appliedManualDiscountCents} bonifiqBaseCents={sale.bonifiqBaseCents} bonifiqDiscountCents={sale.bonifiqDiscountCents} bonifiqDiscountLabel={discountLabel} totalCents={sale.totalCents} />
-        <div className="cart-actions"><button className="btn btn-success" onClick={() => void sale.finalizeSale()} disabled={sale.isBusy || Boolean(sale.integration.selectedReward && !sale.integration.redeem)}>{sale.integration.phase === 'submitting-order' ? '⏳ Processando...' : '✅ Finalizar venda em dinheiro'}</button>{sale.integration.selectedReward && !sale.integration.redeem && <small className="cart-action-hint">Conclua ou cancele o resgate antes de finalizar.</small>}</div>
+        <div className="cart-actions"><button className="btn btn-success" onClick={() => void sale.finalizeSale()} disabled={sale.isBusy || sale.integration.retryAction === 'cancel-reward' || Boolean(sale.integration.selectedReward && !sale.integration.redeem)}>{sale.integration.phase === 'submitting-order' ? '⏳ Processando...' : '✅ Finalizar venda em dinheiro'}</button>{sale.integration.selectedReward && !sale.integration.redeem && <small className="cart-action-hint">Conclua ou cancele o resgate antes de finalizar.</small>}</div>
       </aside>
     </div>}
 

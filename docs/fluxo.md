@@ -17,13 +17,10 @@ sequenceDiagram
         Operador->>PDV: Digita o código
         PDV->>BonifiQ: POST /POS/customers/{id}/challengevalidate
     end
-    alt RewardType = 5
-        PDV->>BonifiQ: POST /RewardConfigurations/{id}/product-discount/redeem
-        BonifiQ-->>PDV: RewardId, ExternalCode, ExternalProductId, ProductDiscountTotal
-        PDV->>PDV: Adiciona linha resgatada ao carrinho
-    else Recompensa comum
-        PDV->>BonifiQ: POST /POS/rewards/{id}/redeem
-        BonifiQ-->>PDV: RewardId e ExternalCode
+    PDV->>BonifiQ: POST /POS/rewards/{id}/redeem
+    BonifiQ-->>PDV: RewardId, ExternalCode e, para RewardType 5, ExternalProductId
+    opt RewardType = 5
+        PDV->>PDV: Calcula o preço e adiciona uma linha de uma unidade
     end
     Operador->>PDV: Finaliza pagamento
     PDV->>BonifiQ: POST /POS/orders
@@ -51,8 +48,8 @@ Isso evita combinar booleanos incompatíveis, como “resgatando” e “editand
 | Cliente ou carrinho muda | `POST /POS/rewards/available` | Cliente, valor, desconto e produtos | `Customer`, tier, `ShouldValidateCustomer` e `ShouldValidateCustomerSignup` durante a venda | Descartar resposta anterior; a mais recente vence |
 | Benefício confirmado | `POST .../challenge` | Cliente e `TransactionId`; dados cadastrais somente no signup | `TransactionId` | Retry com o mesmo ID |
 | Código informado | `POST .../challengevalidate` | `TransactionId` e código | Nenhum dado novo | Manter popup para nova tentativa |
-| Recompensa comum | `POST /POS/rewards/{id}/redeem` | Cliente, valor e `OriginalKey` | `RewardId`, `ExternalCode`, `OriginalKey` | `DELETE /POS/rewards/{RewardId}` |
-| Produto ou brinde | `POST /RewardConfigurations/{id}/product-discount/redeem` | Cliente, `OriginalKey` e produto | Campos acima + `ExternalProductId` e linha do carrinho | Estornar e só então remover a linha |
+| Qualquer recompensa | `POST /POS/rewards/{id}/redeem` | Cliente, `OriginalKey` e `Value` somente para cashback | `RewardId`, `ExternalCode`, `OriginalKey` | `DELETE /POS/rewards/{RewardId}` |
+| Produto ou brinde, após redeem | Nenhuma chamada adicional | `ExternalProductId`, modo, valor e preço efetivo já validados | SKU offline e linha separada de uma unidade | Estornar e só então remover a linha |
 | Venda concluída | `POST /POS/orders` | Total líquido, cliente, produtos e `Coupon` | ID original do pedido | Cancelamento total ou parcial |
 | Devolução parcial | `POST /POS/{orderId}/partialcancel` | Valor líquido, `CancelKey` e produtos devolvidos | `CancelKey` | Retry com a mesma chave |
 
@@ -61,7 +58,11 @@ Isso evita combinar booleanos incompatíveis, como “resgatando” e “editand
 - Reconsultar benefícios quando carrinho ou desconto próprio mudar.
 - Ignorar respostas antigas que terminem depois de uma consulta mais recente.
 - Só permitir seleção quando `CanUse=true`.
-- Exibir `Requirements` retornado pela API; não deduzir o motivo pelo saldo local. `CannotUseReason` pertence apenas ao mock/compatibilidade quando não vier no contrato HTTP.
+- Exibir `Requirements` e `CannotUseReason` retornados pela API; não recalcular elegibilidade localmente.
+- Em `/available`, enviar o produto e seu preço efetivo. `ProductDiscountPrice` menor que `ProductPrice` indica promoção.
+- Para produto offline diferente de `FreeGift`, a BonifiQ exige SKU correspondente, benefício financeiro real e cumulatividade quando houver promoção. `FreeGift` não exige que o produto já esteja no carrinho.
+- O redeem de `RewardType=5` não recebe produto, quantidade, preço, promoção ou `ForceGenerateCoupon`; ele sempre confirma uma unidade.
+- A resposta POS não possui `ProductDiscountTotal`. O PDV calcula o preço final a partir de `ProductDiscountMode` e `ProductDiscountValue`.
 - Gerar `OriginalKey` uma vez na confirmação e reutilizá-la em retries.
 - Se o challenge pedir `ShouldInformPhone` ou `ShouldInformEmail`, repetir uma vez com apenas o contato solicitado e o mesmo `TransactionId`.
 - Resgate e registro do pedido são operações distintas.
