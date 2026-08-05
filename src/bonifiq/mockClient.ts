@@ -2,7 +2,6 @@ import { mockCustomerPoints, mockCustomers, mockRewardsData } from './mockFixtur
 import { getActiveScenario } from './scenarios'
 import {
   CannotUseReason,
-  ProductDiscountMode,
   RewardType,
   type ApiResult,
   type AvailableReward,
@@ -67,26 +66,6 @@ export function buildMockReward(reward: typeof rewardsData[number], request: Ava
     } else if (Number(reward.productAvailableQuantity ?? 1) <= 0) {
       canUse = false
       reason = CannotUseReason.ProductRewardUsageLimitReached
-    } else if (reward.productDiscountMode !== ProductDiscountMode.FreeGift) {
-      const configuredValue = Number(reward.productDiscountValue || 0)
-      const applicableProduct = request.products.find(product => {
-        if (!product.isActive || product.quantity < 1 || product.originalId.toLowerCase() !== externalProductId.toLowerCase()) return false
-        const effectivePrice = Number(product.productDiscountPrice ?? product.productPrice ?? 0)
-        const hasPromotion = product.productDiscountPrice !== null
-          && product.productDiscountPrice !== undefined
-          && product.productDiscountPrice < product.productPrice
-        if (hasPromotion && !cumulative) return false
-        switch (reward.productDiscountMode) {
-          case ProductDiscountMode.PercentDiscount: return configuredValue > 0 && configuredValue <= 100 && effectivePrice > 0
-          case ProductDiscountMode.FixedFinalPrice: return configuredValue >= 0 && configuredValue < effectivePrice
-          case ProductDiscountMode.FixedDiscountAmount: return configuredValue > 0 && effectivePrice > 0
-          default: return false
-        }
-      })
-      if (!applicableProduct) {
-        canUse = false
-        reason = CannotUseReason.ProductRewardNoApplicableProduct
-      }
     }
   }
   const title = reward.title

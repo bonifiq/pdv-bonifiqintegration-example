@@ -11,13 +11,15 @@ interface Props {
   selectedReward: AvailableReward | null
   catalogProducts: CatalogProduct[]
   onConfirmReward: (reward: AvailableReward, cashbackValue: number | null) => Promise<void>
+  onRemoveReward: () => Promise<void>
   isRedeemed: boolean
+  canRemoveReward: boolean
   disabled: boolean
 }
 
 const currency = (value: number) => Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
-export function BonifiQSection({ rewardsData, loading, selectedReward, catalogProducts, onConfirmReward, isRedeemed, disabled }: Props) {
+export function BonifiQSection({ rewardsData, loading, selectedReward, catalogProducts, onConfirmReward, onRemoveReward, isRedeemed, canRemoveReward, disabled }: Props) {
   const [pickerOpen, setPickerOpen] = useState(false)
   const [filter, setFilter] = useState<RewardFilter>('all')
   const [rewardToConfirm, setRewardToConfirm] = useState<AvailableReward | null>(null)
@@ -59,9 +61,12 @@ export function BonifiQSection({ rewardsData, loading, selectedReward, catalogPr
   return <>
     <section className="bonifiq-section">
       {header}
-      <div className="rule-origin"><span className="responsibility-badge bonifiq">Regra calculada pela BonifiQ</span><small>Elegibilidade, saldo e limites vêm de /rewards/available.</small></div>
       {!rewardsData?.hasRewards ? <div className="bonifiq-no-rewards"><span>✨</span><div><strong>Nenhum benefício disponível</strong><small>A venda ainda deve ser registrada para pontuação.</small></div></div> : selectedReward ? <>
-        <div className="bonifiq-selected-reward"><div className="bonifiq-selected-icon">{isFreeGift(selectedReward) ? '🎁' : isProductReward(selectedReward) ? '🛍️' : selectedReward.isCashback ? '💰' : '🏷️'}</div><div className="bonifiq-selected-content"><small>{isRedeemed ? 'Recompensa resgatada' : 'Resgate em andamento'}</small><strong>{selectedReward.title}</strong><span>{valueLabel(selectedReward)} · {costLabel(selectedReward)}</span></div></div>
+        <div className="bonifiq-selected-reward">
+          <div className="bonifiq-selected-icon">{isFreeGift(selectedReward) ? '🎁' : isProductReward(selectedReward) ? '🛍️' : selectedReward.isCashback ? '💰' : '🏷️'}</div>
+          <div className="bonifiq-selected-content"><small>{isRedeemed ? 'Recompensa resgatada' : 'Resgate em andamento'}</small><strong>{selectedReward.title}</strong><span>{valueLabel(selectedReward)} · {costLabel(selectedReward)}</span></div>
+          {isRedeemed && <div className="bonifiq-selected-actions"><button type="button" className="bonifiq-clear-button" aria-label="Remover Recompensa" title="Remover Recompensa" disabled={!canRemoveReward} onClick={() => void onRemoveReward()}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6l1 2h4v2H4V5h4l1-2Zm-2 6h10l-1 11H8L7 9Zm3 2v7h2v-7h-2Zm4 0v7h2v-7h-2Z" fill="currentColor" /></svg></button></div>}
+        </div>
         {isRedeemed && <div className="bonifiq-redeemed-status"><span>✓</span><div><strong>Benefício aplicado</strong><small>Agora você pode finalizar a venda.</small></div></div>}
       </> : <button type="button" className="bonifiq-picker-trigger" onClick={() => setPickerOpen(true)} disabled={disabled || !selectable.length}><span className="bonifiq-picker-trigger-icon">✨</span><span className="bonifiq-picker-trigger-copy"><strong>Escolher benefício</strong><small>{selectable.length} disponível(is) para este cliente</small></span><span className="bonifiq-picker-trigger-arrow">›</span></button>}
     </section>

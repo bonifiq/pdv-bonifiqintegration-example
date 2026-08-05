@@ -27,6 +27,10 @@ describe('regras monetárias de recompensa', () => {
     expect(calculateProductRewardDiscountCents(reward, 8000)).toBe(1600)
   })
 
+  it('respeita exatamente o preço final fixo configurado', () => {
+    expect(calculateProductRewardUnitPriceCents(productReward(ProductDiscountMode.FixedFinalPrice, 120), 10000)).toBe(12000)
+  })
+
   it('exige challenge também para validação de cadastro', () => {
     expect(shouldRunCustomerChallenge({ shouldValidateCustomer: false, shouldValidateCustomerSignup: true })).toBe(true)
     expect(shouldRunCustomerChallenge({ shouldValidateCustomer: false, shouldValidateCustomerSignup: false })).toBe(false)

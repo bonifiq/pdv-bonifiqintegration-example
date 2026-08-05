@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'r
 import { bonifiqClient } from '../bonifiq/client'
 import { buildChallengeContactRetry } from '../bonifiq/challengeRetry'
 import { integrationFlowReducer, initialIntegrationState } from '../bonifiq/flowReducer'
-import { calculateProductRewardDiscountCents, calculateProductRewardUnitPriceCents, calculateRewardDiscountCents, getProductRewardDescription, isFreeGift, isProductReward, shouldRunCustomerChallenge } from '../bonifiq/rewardRules'
+import { calculateProductRewardDiscountCents, calculateProductRewardUnitPriceCents, calculateRewardDiscountCents, getProductRewardDescription, isProductReward, shouldRunCustomerChallenge } from '../bonifiq/rewardRules'
 import { DEMO_SCENARIOS, setActiveScenario, type DemoScenarioId } from '../bonifiq/scenarios'
 import { traceLocalEvent } from '../bonifiq/trace'
 import type { AvailableReward, OrderCustomerInput, OrderRequest, OrderResponse, RedeemResponse } from '../bonifiq/types'
@@ -14,6 +14,17 @@ import { allocatePartialRefundProducts } from './partialCancellation'
 import type { CartItem, CatalogProduct, MoneyCents, Notice, OrderRecord, PdvCustomer } from './types'
 
 const makeOperationId = (prefix: string): string => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+
+const rewardsRefreshReason = {
+  changedSale: 'Dados da venda alterados; atualizar os benefícios disponíveis.',
+  selectedCustomer: 'Cliente selecionado; consultar saldo, tier e benefícios para a venda.',
+  changedCart: 'Carrinho alterado; revalidar elegibilidade e benefícios.',
+  changedDiscount: 'Desconto manual alterado; revalidar elegibilidade e limites.',
+  loadedScenario: 'Cenário carregado; consultar benefícios para o cliente e carrinho definidos.',
+  cancelledReward: 'Recompensa estornada; atualizar os benefícios disponíveis para a venda.',
+  returnedToEdit: 'Operador voltou para a edição; atualizar os benefícios sem o desconto do pagamento.',
+  retry: 'A consulta anterior falhou; consultar os benefícios novamente.',
+} as const
 
 export function useSaleFlow() {
   const [currentStep, setCurrentStep] = useState<1 | 2>(1)
@@ -29,6 +40,7 @@ export function useSaleFlow() {
   const [processingOrderId, setProcessingOrderId] = useState<string | null>(null)
   const [activeScenario, setScenarioState] = useState<DemoScenarioId | null>(null)
   const rewardsRequestId = useRef(0)
+  const nextRewardsRefreshReason = useRef<string>(rewardsRefreshReason.changedSale)
 
   const subtotalCents = useMemo(() => cartItems.reduce((total, item) => total + item.priceCents * item.quantity, 0), [cartItems])
   const appliedManualDiscountCents = clampCents(manualDiscountCents, 0, subtotalCents)
@@ -38,7 +50,7 @@ export function useSaleFlow() {
 
   const resetReward = useCallback(() => dispatchIntegration({ type: 'RESET' }), [])
 
-  const loadRewards = useCallback(async () => {
+  const loadRewards = useCallback(async (reason: string) => {
     if (!customer || integration.redeem) return
     const requestId = ++rewardsRequestId.current
     dispatchIntegration({ type: 'REWARDS_LOADING' })
@@ -57,7 +69,7 @@ export function useSaleFlow() {
         productBrand: item.brand || null,
         productCategory: item.category || null,
       })),
-    })
+    }, { reason })
     if (requestId !== rewardsRequestId.current) return
     if (!result.ok) {
       dispatchIntegration({ type: 'ERROR', message: result.error.friendlyMessage, retryAction: 'rewards' })
@@ -69,7 +81,9 @@ export function useSaleFlow() {
   const cartSignature = cartItems.map(item => `${item.id}:${item.quantity}:${item.priceCents}`).join('|')
   useEffect(() => {
     if (!customer || integration.redeem) return
-    void loadRewards()
+    const reason = nextRewardsRefreshReason.current
+    nextRewardsRefreshReason.current = rewardsRefreshReason.changedSale
+    void loadRewards(reason)
   }, [customer?.document, cartSignature, appliedManualDiscountCents, integration.redeem, loadRewards])
 
   const clearSale = useCallback(() => {
@@ -85,6 +99,7 @@ export function useSaleFlow() {
   }, [resetReward])
 
   const selectCustomer = (selected: PdvCustomer | null): void => {
+    nextRewardsRefreshReason.current = rewardsRefreshReason.selectedCustomer
     setCustomer(selected)
     setManualDiscountCents(0)
     resetReward()
@@ -94,6 +109,7 @@ export function useSaleFlow() {
   }
 
   const addProduct = (product: CatalogProduct): void => {
+    nextRewardsRefreshReason.current = rewardsRefreshReason.changedCart
     setCartItems(previous => {
       const existing = previous.find(item => item.id === product.id && !item.isRewardProduct)
       return existing
@@ -105,6 +121,7 @@ export function useSaleFlow() {
   }
 
   const removeItem = (itemId: string): void => {
+    nextRewardsRefreshReason.current = rewardsRefreshReason.changedCart
     setCartItems(previous => previous.filter(item => item.id !== itemId))
     setManualDiscountCents(0)
     resetReward()
@@ -112,18 +129,21 @@ export function useSaleFlow() {
 
   const updateQuantity = (itemId: string, quantity: number): void => {
     if (quantity < 1) return removeItem(itemId)
+    nextRewardsRefreshReason.current = rewardsRefreshReason.changedCart
     setCartItems(previous => previous.map(item => item.id === itemId ? { ...item, quantity } : item))
     setManualDiscountCents(0)
     resetReward()
   }
 
   const clearCart = (): void => {
+    nextRewardsRefreshReason.current = rewardsRefreshReason.changedCart
     setCartItems([])
     setManualDiscountCents(0)
     resetReward()
   }
 
   const changeManualDiscount = (value: number): void => {
+    nextRewardsRefreshReason.current = rewardsRefreshReason.changedDiscount
     setManualDiscountCents(clampCents(toCents(value), 0, subtotalCents))
     resetReward()
   }
@@ -132,13 +152,9 @@ export function useSaleFlow() {
     product.id.toLowerCase() === String(externalProductId || '').toLowerCase()
   ))
 
-  const findEligibleCartItem = (externalProductId?: string | null): CartItem | undefined => cartItems.find(item => (
-    !item.isRewardProduct && (item.originalId || item.id).toLowerCase() === String(externalProductId || '').toLowerCase()
-  ))
-
-  const buildRewardCartItem = (reward: AvailableReward, redeem: RedeemResponse, product: CatalogProduct, effectiveUnitPriceCents: MoneyCents): CartItem => {
+  const buildRewardCartItem = (reward: AvailableReward, redeem: RedeemResponse, product: CatalogProduct): CartItem => {
     const quantity = 1
-    const priceCents = calculateProductRewardUnitPriceCents(reward, effectiveUnitPriceCents)
+    const priceCents = calculateProductRewardUnitPriceCents(reward, product.priceCents)
     return {
       ...product,
       id: `reward-${redeem.rewardId}-${redeem.externalProductId}`,
@@ -146,23 +162,24 @@ export function useSaleFlow() {
       name: reward.productDisplayName || product.name,
       quantity,
       priceCents,
-      originalPriceCents: effectiveUnitPriceCents,
+      originalPriceCents: product.priceCents,
       isRewardProduct: true,
       rewardLabel: getProductRewardDescription(reward),
     }
   }
 
-  const processRedeem = useCallback(async (reward: AvailableReward, cashbackCents: MoneyCents, originalKey: string) => {
+  const processRedeem = useCallback(async (reward: AvailableReward, cashbackCents: MoneyCents, originalKey: string, reason: string) => {
     dispatchIntegration({ type: 'REDEEMING' })
     const expectedProductId = isProductReward(reward) ? reward.externalProductId : null
     const catalogProduct = isProductReward(reward) ? findCatalogProduct(expectedProductId) : undefined
-    const eligibleCartItem = isProductReward(reward) && !isFreeGift(reward) ? findEligibleCartItem(expectedProductId) : undefined
-    const effectiveUnitPriceCents = isProductReward(reward)
-      ? isFreeGift(reward) ? catalogProduct?.priceCents : eligibleCartItem?.priceCents
-      : undefined
-    if (isProductReward(reward) && (!expectedProductId || !catalogProduct || effectiveUnitPriceCents === undefined)) {
+    if (isProductReward(reward) && !expectedProductId) {
       dispatchIntegration({ type: 'CLEAR_REWARD' })
-      dispatchIntegration({ type: 'ERROR', message: 'O produto validado pela BonifiQ não pode mais ser aplicado ao carrinho atual. Consulte os benefícios novamente.', retryAction: 'rewards' })
+      dispatchIntegration({ type: 'ERROR', message: 'A BonifiQ não retornou o identificador offline do produto configurado.', retryAction: 'rewards' })
+      return
+    }
+    if (isProductReward(reward) && !catalogProduct) {
+      dispatchIntegration({ type: 'CLEAR_REWARD' })
+      dispatchIntegration({ type: 'ERROR', message: `O SKU ${expectedProductId} retornado pela BonifiQ não existe no catálogo deste PDV.`, retryAction: 'rewards' })
       return
     }
 
@@ -171,7 +188,7 @@ export function useSaleFlow() {
       customerId: customer!.document,
       originalKey,
       value: reward.isCashback ? fromCents(cashbackCents) : null,
-    })
+    }, { reason })
 
     if (!result.ok) {
       dispatchIntegration({ type: 'ERROR', message: result.error.friendlyMessage, retryAction: 'redeem' })
@@ -182,17 +199,21 @@ export function useSaleFlow() {
       if (!returnedProductId || returnedProductId.toLowerCase() !== expectedProductId!.trim().toLowerCase()) {
         dispatchIntegration({ type: 'REWARD_APPLIED', redeem: result.data })
         dispatchIntegration({ type: 'REWARD_CANCELLING' })
-        const cancellation = await bonifiqClient.cancelReward(result.data.rewardId)
+        const cancellation = await bonifiqClient.cancelReward(result.data.rewardId, {
+          reason: 'O SKU retornado divergiu do /available; desfazer o resgate automaticamente.',
+        })
         if (!cancellation.ok) {
           dispatchIntegration({ type: 'ERROR', message: `A configuração do produto mudou após a consulta e o estorno automático falhou: ${cancellation.error.friendlyMessage}`, retryAction: 'cancel-reward' })
           return
         }
+        nextRewardsRefreshReason.current = rewardsRefreshReason.cancelledReward
         dispatchIntegration({ type: 'CLEAR_REWARD' })
         dispatchIntegration({ type: 'ERROR', message: 'A configuração do produto mudou após a consulta. O resgate foi estornado; consulte os benefícios novamente.', retryAction: 'rewards' })
         return
       }
 
-      const priceCents = calculateProductRewardUnitPriceCents(reward, effectiveUnitPriceCents!)
+      const catalogUnitPriceCents = catalogProduct!.priceCents
+      const priceCents = calculateProductRewardUnitPriceCents(reward, catalogUnitPriceCents)
       traceLocalEvent({
         operation: 'Aplicar benefício de produto no carrinho',
         reason: 'A BonifiQ registra o resgate e devolve o SKU offline; o cálculo e a aplicação financeira são responsabilidade do PDV.',
@@ -201,20 +222,20 @@ export function useSaleFlow() {
           quantity: 1,
           productDiscountMode: reward.productDiscountMode,
           productDiscountValue: reward.productDiscountValue,
-          effectiveUnitPrice: fromCents(effectiveUnitPriceCents!),
+          catalogUnitPrice: fromCents(catalogUnitPriceCents),
         },
         result: {
           finalUnitPrice: fromCents(priceCents),
-          discountAmount: fromCents(calculateProductRewardDiscountCents(reward, effectiveUnitPriceCents!)),
+          discountAmount: fromCents(calculateProductRewardDiscountCents(reward, catalogUnitPriceCents)),
           separateCartLine: true,
         },
       })
-      setCartItems(previous => [...previous, buildRewardCartItem(reward, result.data, catalogProduct!, effectiveUnitPriceCents!)])
+      setCartItems(previous => [...previous, buildRewardCartItem(reward, result.data, catalogProduct!)])
     }
     dispatchIntegration({ type: 'REWARD_APPLIED', redeem: result.data })
-  }, [cartItems, customer])
+  }, [customer])
 
-  const createChallenge = useCallback(async (reward: AvailableReward, cashbackCents: MoneyCents, transactionId: string, originalKey: string) => {
+  const createChallenge = useCallback(async (reward: AvailableReward, cashbackCents: MoneyCents, transactionId: string, originalKey: string, reason: string) => {
     dispatchIntegration({ type: 'CHALLENGE_SENDING' })
     const shouldValidateSignup = Boolean(integration.rewards?.shouldValidateCustomerSignup)
     const request = {
@@ -227,10 +248,12 @@ export function useSaleFlow() {
         phone: customer!.phone,
       } : {}),
     }
-    let result = await bonifiqClient.sendChallenge(request)
+    let result = await bonifiqClient.sendChallenge(request, { reason })
     if (!result.ok && result.httpStatus !== undefined && result.httpStatus < 400) {
       const retryRequest = buildChallengeContactRetry(request, customer!, result.error.details)
-      if (retryRequest) result = await bonifiqClient.sendChallenge(retryRequest)
+      if (retryRequest) result = await bonifiqClient.sendChallenge(retryRequest, {
+        reason: 'A BonifiQ solicitou dados de contato; reenviar o challenge com o cadastro do PDV.',
+      })
     }
     if (!result.ok) {
       dispatchIntegration({ type: 'ERROR', message: result.error.friendlyMessage, retryAction: 'challenge' })
@@ -245,22 +268,25 @@ export function useSaleFlow() {
     const originalKey = makeOperationId(`PDV-REWARD-${reward.id}`)
     dispatchIntegration({ type: 'PREPARE_REDEEM', reward, cashbackCents, transactionId, originalKey })
     if (shouldRunCustomerChallenge(integration.rewards)) {
-      await createChallenge(reward, cashbackCents, transactionId, originalKey)
+      await createChallenge(reward, cashbackCents, transactionId, originalKey, 'A recompensa escolhida exige validação de identidade antes do resgate.')
     } else {
-      await processRedeem(reward, cashbackCents, originalKey)
+      await processRedeem(reward, cashbackCents, originalKey, 'A BonifiQ dispensou OTP; registrar o uso da recompensa escolhida.')
     }
   }
 
   const validateCode = async (code: string): Promise<void> => {
     if (!customer || !integration.transactionId || !integration.originalKey || !integration.selectedReward) return
     dispatchIntegration({ type: 'CODE_VALIDATING' })
-    const result = await bonifiqClient.validateChallenge({ customerId: customer.document, transactionId: integration.transactionId, code })
+    const validationReason = integration.retryAction === 'validation'
+      ? 'A validação anterior falhou; conferir novamente o código informado pelo operador.'
+      : 'O operador informou o código recebido; validar a identidade antes do resgate.'
+    const result = await bonifiqClient.validateChallenge({ customerId: customer.document, transactionId: integration.transactionId, code }, { reason: validationReason })
     if (!result.ok) {
       dispatchIntegration({ type: 'ERROR', message: result.error.friendlyMessage, retryAction: 'validation' })
       return
     }
     dispatchIntegration({ type: 'CUSTOMER_VALIDATED' })
-    await processRedeem(integration.selectedReward, integration.cashbackCents, integration.originalKey)
+    await processRedeem(integration.selectedReward, integration.cashbackCents, integration.originalKey, 'Código validado; registrar o uso da recompensa escolhida.')
   }
 
   const cancelPendingReward = (): void => {
@@ -281,21 +307,42 @@ export function useSaleFlow() {
     dispatchIntegration({ type: 'CLEAR_REWARD' })
   }
 
-  const backToSelection = useCallback(async () => {
+  const cancelRedeemedReward = useCallback(async (retryAction: 'cancel-reward' | 'remove-reward', reason: string): Promise<boolean> => {
+    if (!integration.redeem) return true
+    dispatchIntegration({ type: 'REWARD_CANCELLING' })
+    const result = await bonifiqClient.cancelReward(integration.redeem.rewardId, { reason })
+    if (!result.ok) {
+      dispatchIntegration({ type: 'ERROR', message: result.error.friendlyMessage, retryAction })
+      return false
+    }
+    nextRewardsRefreshReason.current = rewardsRefreshReason.cancelledReward
+    setCartItems(previous => previous.filter(item => !item.isRewardProduct))
+    return true
+  }, [integration.redeem])
+
+  const backToSelection = useCallback(async (isRetry = false) => {
     if (integration.phase === 'cancelling-reward' || integration.phase === 'submitting-order') return
     if (integration.redeem) {
-      dispatchIntegration({ type: 'REWARD_CANCELLING' })
-      const result = await bonifiqClient.cancelReward(integration.redeem.rewardId)
-      if (!result.ok) {
-        dispatchIntegration({ type: 'ERROR', message: result.error.friendlyMessage, retryAction: 'cancel-reward' })
-        return
-      }
-      setCartItems(previous => previous.filter(item => !item.isRewardProduct))
+      const reason = isRetry
+        ? 'A tentativa anterior de estorno falhou; repetir o cancelamento da recompensa.'
+        : 'O operador voltou para editar cliente ou carrinho; estornar a recompensa antes da edição.'
+      if (!await cancelRedeemedReward('cancel-reward', reason)) return
+    } else {
+      nextRewardsRefreshReason.current = rewardsRefreshReason.returnedToEdit
     }
     setManualDiscountCents(0)
     dispatchIntegration({ type: 'CLEAR_REWARD' })
     setCurrentStep(1)
-  }, [integration.phase, integration.redeem])
+  }, [cancelRedeemedReward, integration.phase])
+
+  const removeReward = useCallback(async (isRetry = false) => {
+    if (!integration.redeem || integration.phase === 'cancelling-reward' || integration.phase === 'submitting-order') return
+    const reason = isRetry
+      ? 'A tentativa anterior de estorno falhou; repetir o cancelamento da recompensa.'
+      : 'O operador removeu o benefício aplicado; estornar antes de limpar a recompensa do PDV.'
+    if (!await cancelRedeemedReward('remove-reward', reason)) return
+    dispatchIntegration({ type: 'CLEAR_REWARD' })
+  }, [cancelRedeemedReward, integration.phase, integration.redeem])
 
   const buildOrderCustomer = (): OrderCustomerInput => {
     const rewardsCustomer = integration.rewards?.customer
@@ -311,7 +358,7 @@ export function useSaleFlow() {
     }
   }
 
-  const finalizeSale = useCallback(async () => {
+  const finalizeSale = useCallback(async (isRetry = false) => {
     if (!customer || cartItems.length === 0 || (integration.selectedReward && !integration.redeem)) return
     dispatchIntegration({ type: 'ORDER_SUBMITTING' })
     const orderId = makeOperationId('PDV-ORDER')
@@ -339,7 +386,10 @@ export function useSaleFlow() {
       branch: { originalId: 'LOJA-001', name: 'Loja Centro' },
       salesPerson: { originalId: 'VENDEDOR-001', name: 'João Silva' },
     }
-    const result = await bonifiqClient.createOrder(orderData)
+    const orderReason = isRetry
+      ? 'O registro do pedido falhou; enviar novamente a venda concluída para a BonifiQ.'
+      : 'Pagamento em dinheiro confirmado; registrar a venda líquida e sua pontuação.'
+    const result = await bonifiqClient.createOrder(orderData, { reason: orderReason })
     if (!result.ok) {
       dispatchIntegration({ type: 'ERROR', message: result.error.friendlyMessage, retryAction: 'order' })
       return
@@ -364,11 +414,12 @@ export function useSaleFlow() {
   }, [appliedManualDiscountCents, bonifiqDiscountCents, cartItems, customer, integration.customerValidated, integration.redeem, integration.rewards?.customer, integration.rewards?.shouldValidateCustomerSignup, integration.selectedReward, subtotalCents, totalCents])
 
   const retryIntegration = async (): Promise<void> => {
-    if (integration.retryAction === 'rewards') return loadRewards()
-    if (integration.retryAction === 'challenge' && integration.selectedReward && integration.transactionId && integration.originalKey) return createChallenge(integration.selectedReward, integration.cashbackCents, integration.transactionId, integration.originalKey)
-    if (integration.retryAction === 'redeem' && integration.selectedReward && integration.originalKey) return processRedeem(integration.selectedReward, integration.cashbackCents, integration.originalKey)
-    if (integration.retryAction === 'order') return finalizeSale()
-    if (integration.retryAction === 'cancel-reward') return backToSelection()
+    if (integration.retryAction === 'rewards') return loadRewards(rewardsRefreshReason.retry)
+    if (integration.retryAction === 'challenge' && integration.selectedReward && integration.transactionId && integration.originalKey) return createChallenge(integration.selectedReward, integration.cashbackCents, integration.transactionId, integration.originalKey, 'A criação do challenge falhou; tentar novamente com o mesmo TransactionId.')
+    if (integration.retryAction === 'redeem' && integration.selectedReward && integration.originalKey) return processRedeem(integration.selectedReward, integration.cashbackCents, integration.originalKey, 'O resgate anterior falhou; repetir com a mesma OriginalKey.')
+    if (integration.retryAction === 'order') return finalizeSale(true)
+    if (integration.retryAction === 'cancel-reward') return backToSelection(true)
+    if (integration.retryAction === 'remove-reward') return removeReward(true)
   }
 
   const dismissIntegrationError = (): void => {
@@ -376,7 +427,7 @@ export function useSaleFlow() {
       dispatchIntegration({ type: 'CHALLENGE_READY', challenge: integration.challenge })
       return
     }
-    if (integration.retryAction === 'cancel-reward' && integration.redeem) return
+    if ((integration.retryAction === 'cancel-reward' || integration.retryAction === 'remove-reward') && integration.redeem) return
     dispatchIntegration({ type: 'CLEAR_REWARD' })
   }
 
@@ -384,11 +435,11 @@ export function useSaleFlow() {
   const viewOrders = (): void => { setOrderResult(null); setShowOrders(true); setOrderNotice(null) }
   const backToPdv = (): void => { setShowOrders(false); setOrderNotice(null) }
 
-  const cancelOrder = async (order: OrderRecord): Promise<void> => {
+  const cancelOrder = async (order: OrderRecord, reason = 'O operador cancelou o pedido inteiro; registrar o cancelamento na BonifiQ.'): Promise<void> => {
     setProcessingOrderId(order.originalId)
     setOrderNotice(null)
     const cancelledDate = new Date().toISOString()
-    const result = await bonifiqClient.cancelOrder(order.originalId, cancelledDate, 'Cancelado')
+    const result = await bonifiqClient.cancelOrder(order.originalId, cancelledDate, 'Cancelado', { reason })
     if (!result.ok) {
       setOrderNotice({ type: 'error', message: result.error.friendlyMessage })
       setProcessingOrderId(null)
@@ -413,7 +464,7 @@ export function useSaleFlow() {
     }).filter(([, quantity]) => Number(quantity) > 0)) as Record<string, number>
     if (Object.keys(selected).length === 0) return
     const remaining = order.items.map(item => ({ ...item, cancelledQuantity: item.cancelledQuantity + (selected[item.id] || 0) }))
-    if (remaining.every(item => item.cancelledQuantity >= item.quantity)) return cancelOrder(order)
+    if (remaining.every(item => item.cancelledQuantity >= item.quantity)) return cancelOrder(order, 'Os itens selecionados esgotam o pedido; registrar um cancelamento integral.')
     setProcessingOrderId(order.originalId)
     const activeSubtotalCents = remaining.reduce((total, item) => total + item.priceCents * Math.max(0, item.quantity - item.cancelledQuantity), 0)
     const proportionalDiscountCents = order.originalSubtotalCents > 0 ? Math.round(order.originalDiscountCents * activeSubtotalCents / order.originalSubtotalCents) : 0
@@ -429,7 +480,7 @@ export function useSaleFlow() {
       valueToRefund: fromCents(refundCents),
       cancelKey,
       products: allocatePartialRefundProducts(order.items, selected, refundCents),
-    })
+    }, { reason: 'O operador selecionou parte dos itens; registrar a devolução proporcional.' })
     if (!result.ok) {
       setOrderNotice({ type: 'error', message: result.error.friendlyMessage })
       setProcessingOrderId(null)
@@ -453,6 +504,7 @@ export function useSaleFlow() {
   const applyScenario = (scenarioId: DemoScenarioId): void => {
     const scenario = DEMO_SCENARIOS.find(item => item.id === scenarioId)!
     setActiveScenario(scenarioId)
+    nextRewardsRefreshReason.current = rewardsRefreshReason.loadedScenario
     setScenarioState(scenarioId)
     rewardsRequestId.current += 1
     setCurrentStep(1)
@@ -475,7 +527,7 @@ export function useSaleFlow() {
     isBusy, validationOpen,
     selectCustomer, addProduct, removeItem, updateQuantity, clearCart, changeManualDiscount,
     continueToPayment: () => customer && cartItems.length > 0 && setCurrentStep(2),
-    backToSelection, confirmReward, validateCode, cancelPendingReward, finalizeSale,
+    backToSelection, removeReward, confirmReward, validateCode, cancelPendingReward, finalizeSale,
     retryIntegration, dismissIntegrationError,
     closeRewardsSummary: () => setShowRewardsSummary(false),
     newSale, viewOrders, backToPdv, cancelOrder, partialCancel, applyScenario,

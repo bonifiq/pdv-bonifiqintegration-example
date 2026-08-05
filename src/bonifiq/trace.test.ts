@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
+import { createMockBonifiqClient } from './mockClient'
 import { clearIntegrationTrace, sanitizeTraceValue, subscribeToIntegrationTrace, traceAsCurl, traceLocalEvent, traceOperation, type IntegrationTraceEvent } from './trace'
+import { withIntegrationTrace } from './tracedClient'
 
 beforeEach(clearIntegrationTrace)
 
@@ -29,6 +31,25 @@ describe('inspetor de integração', () => {
     const curl = traceAsCurl({ id: '2', timestamp: '', kind: 'api', operation: 'Estorno', method: 'DELETE', endpoint: '/POS/rewards/123', reason: '', persists: [], request: null, response: {}, durationMs: 1, ok: true })
     expect(curl).toContain("--url '<BONIFIQ_BASE_URL>/POS/rewards/123'")
     expect(curl).not.toContain('--data')
+  })
+
+  it('mantém o motivo apenas no trace, sem alterar body ou cURL', async () => {
+    let events: IntegrationTraceEvent[] = []
+    const unsubscribe = subscribeToIntegrationTrace(updated => { events = updated })
+    const client = withIntegrationTrace(createMockBonifiqClient())
+    const reason = 'Desconto manual alterado; revalidar elegibilidade e limites.'
+
+    await client.getAvailableRewards({
+      customerId: '12345678900',
+      purchaseValue: 100,
+      discountValue: 20,
+      products: [],
+    }, { reason })
+
+    expect(events[0].reason).toBe(reason)
+    expect(JSON.stringify(events[0].request)).not.toContain(reason)
+    expect(traceAsCurl(events[0])).not.toContain(reason)
+    unsubscribe()
   })
 
   it('registra abandono do resgate como evento local', () => {

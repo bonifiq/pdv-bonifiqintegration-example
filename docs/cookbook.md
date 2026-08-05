@@ -14,12 +14,11 @@ curl --request POST \
     "PurchaseValue": 129.90,
     "DiscountValue": 0,
     "Products": [{
-      "OriginalId": "P001",
-      "LineId": "P001",
-      "Title": "Camiseta Básica",
+      "OriginalId": "P002",
+      "LineId": "P002",
+      "Title": "Calça Jeans",
       "Quantity": 1,
-      "ProductPrice": 49.90,
-      "ProductDiscountPrice": 39.90,
+      "ProductPrice": 129.90,
       "IsActive": true
     }]
   }'
@@ -37,20 +36,21 @@ Resposta relevante:
   "ShouldValidateCustomer": true,
   "AvailablePoints": 1500,
   "Rewards": [{
-    "Id": 6,
+    "Id": 461,
+    "Title": "Caneca",
     "RewardType": 5,
     "CanUse": true,
     "CannotUseReason": 0,
-    "ExternalProductId": "P001",
-    "ProductDisplayName": "Camiseta Básica",
-    "ProductDiscountMode": 0,
-    "ProductDiscountValue": 20,
-    "ProductMaxUnitsPerRedeem": 2
+    "ExternalProductId": "P009",
+    "ProductDisplayName": "Caneca",
+    "ProductDiscountMode": 1,
+    "ProductDiscountValue": 0.01,
+    "ProductMaxUnitsPerRedeem": 1
   }]
 }
 ```
 
-`PurchaseValue` é o total bruto. `DiscountValue` leva descontos próprios do PDV separadamente. Para `RewardType=5`, `Products` é obrigatório na prática para modos diferentes de `FreeGift`: a BonifiQ usa `ProductDiscountPrice ?? ProductPrice` como preço efetivo e bloqueia promoção quando a recompensa não é cumulativa. Mesmo que `ProductMaxUnitsPerRedeem` seja maior, o redeem POS desta versão confirma exatamente uma unidade.
+`PurchaseValue` é o total bruto e `DiscountValue` leva descontos próprios do PDV separadamente. `Products` participa das regras de cashback e itens restritos, mas não determina a disponibilidade offline de `RewardType=5`. No exemplo, a venda possui somente `P002`, porém a recompensa `P009` continua utilizável porque será adicionada como uma nova linha. O redeem POS desta versão sempre confirma exatamente uma unidade.
 
 ## Cliente TypeScript
 
@@ -111,12 +111,12 @@ Para cashback, `Value` recebe o valor escolhido, limitado por `MaxCashbackForCur
 
 ```bash
 curl --request POST \
-  --url '<BONIFIQ_BASE_URL>/POS/rewards/5/redeem' \
+  --url '<BONIFIQ_BASE_URL>/POS/rewards/461/redeem' \
   --header 'Authorization: Basic <CREDENCIAL_BASE64>' \
   --header 'Content-Type: application/json' \
   --data '{
     "CustomerId":"12345678900",
-    "OriginalKey":"PDV-REWARD-5-123",
+    "OriginalKey":"PDV-REWARD-461-123",
     "RedeemOrigin":5
   }'
 ```
@@ -126,22 +126,22 @@ Resposta POS relevante:
 ```json
 {
   "Result": {
-    "RewardId": 123,
+    "RewardId": 9876,
     "ExternalCode": "BNF-EXTERNAL-CODE",
-    "OriginalKey": "PDV-REWARD-5-123",
-    "ExternalProductId": "P001"
+    "OriginalKey": "PDV-REWARD-461-123",
+    "ExternalProductId": "P009"
   }
 }
 ```
 
 | `ProductDiscountMode` | Significado | Preço final da linha |
 |---:|---|---|
-| `0` | Percentual | `preço efetivo - arredondar(preço efetivo × valor / 100)` |
+| `0` | Percentual | `preço do catálogo - arredondar(preço do catálogo × valor / 100)` |
 | `1` | Preço final fixo | `ProductDiscountValue` |
 | `2` | Brinde | Zero |
-| `3` | Valor fixo | `máximo(0, preço efetivo - ProductDiscountValue)` |
+| `3` | Valor fixo | `máximo(0, preço do catálogo - ProductDiscountValue)` |
 
-O POS não recebe `ProductDiscountTotal`: esse campo pertence somente ao fluxo de checkout online. O PDV calcula o valor financeiro em centavos usando os dados de `/available`, valida o `ExternalProductId` devolvido e adiciona uma linha separada de quantidade `1`. Produtos de brinde podem estar ocultos da venda direta, mas precisam existir no catálogo local.
+O POS não recebe `ProductDiscountTotal`: esse campo pertence somente ao fluxo de checkout online. O PDV calcula o valor financeiro em centavos usando o preço atual de seu catálogo e os dados de `/available`, valida o `ExternalProductId` devolvido e adiciona uma linha separada de quantidade `1`. Essa regra vale para os quatro modos, inclusive quando o SKU já existe no carrinho. Produtos de recompensa podem estar ocultos da venda direta, mas precisam existir no catálogo local.
 
 ## Registrar pedido
 

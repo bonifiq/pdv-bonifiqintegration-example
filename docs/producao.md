@@ -33,7 +33,7 @@ O cenário “Falha e retry” falha uma vez e confirma no inspetor que a segund
 | Challenge sem `Code` e sem sucesso | Bloquear resgate e oferecer retry/cancelamento |
 | Código inválido | Manter popup e permitir nova digitação |
 | Redeem incerto/timeout | Repetir com a mesma `OriginalKey` |
-| Produto inelegível em `/available` | Respeitar `CanUse=false` e exibir `CannotUseReason` |
+| Recompensa inelegível em `/available` | Respeitar `CanUse=false` e exibir `CannotUseReason` |
 | SKU offline inexistente no catálogo do PDV | Não resgatar; mostrar motivo local explícito |
 | SKU retornado mudou depois do `/available` | Estornar imediatamente; bloquear pedido até confirmar a compensação |
 | Estorno falhou | Não liberar edição e não remover produto resgatado |

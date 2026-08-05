@@ -25,7 +25,7 @@ export function calculateProductRewardUnitPriceCents(reward: AvailableReward, ef
       return Math.max(0, basePriceCents - Math.round(basePriceCents * percent / 100))
     }
     case ProductDiscountMode.FixedFinalPrice:
-      return Math.min(basePriceCents, Math.max(0, toCents(configuredValue)))
+      return Math.max(0, toCents(configuredValue))
     case ProductDiscountMode.FreeGift:
       return 0
     case ProductDiscountMode.FixedDiscountAmount:
@@ -60,7 +60,7 @@ const unavailableReasons: Record<CannotUseReason, string> = {
   [CannotUseReason.MinimumPurchasePercentNotReached]: 'Percentual mínimo não atingido',
   [CannotUseReason.CustomerNotEnrolled]: 'Cliente não inscrito no programa',
   [CannotUseReason.CannotUseCumulativeDiscount]: 'Não cumulativo com outro desconto',
-  [CannotUseReason.ProductRewardNoApplicableProduct]: 'Produto elegível ausente, em promoção não cumulativa ou sem benefício aplicável',
+  [CannotUseReason.ProductRewardNoApplicableProduct]: 'Produto não aplicável à recompensa',
   [CannotUseReason.ProductRewardUsageLimitReached]: 'Limite de uso atingido',
   [CannotUseReason.ProductRewardRequiresCheckout]: 'Disponível apenas no checkout online',
   [CannotUseReason.ProductRewardInvalidConfiguration]: 'Configuração de produto inválida',

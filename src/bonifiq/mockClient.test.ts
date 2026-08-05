@@ -11,17 +11,6 @@ const request = (products: AvailableRewardsRequest['products']): AvailableReward
   products,
 })
 
-const product = (overrides: Partial<AvailableRewardsRequest['products'][number]> = {}): AvailableRewardsRequest['products'][number] => ({
-  originalId: 'P001',
-  lineId: 'line-P001',
-  title: 'Camiseta Básica',
-  quantity: 1,
-  productPrice: 100,
-  productDiscountPrice: null,
-  isActive: true,
-  ...overrides,
-})
-
 const reward = (overrides: Partial<MockRewardConfig> = {}): MockRewardConfig => ({
   id: 99,
   title: 'Desconto no produto',
@@ -39,24 +28,25 @@ const reward = (overrides: Partial<MockRewardConfig> = {}): MockRewardConfig => 
 beforeEach(() => setActiveScenario('standard'))
 
 describe('mock do contrato POS de ProductDiscount', () => {
-  it('mantém desconto sem produto visível, mas bloqueado pelo /available', () => {
+  it('ignora os produtos do carrinho na disponibilidade offline', () => {
     expect(buildMockReward(reward(), request([]))).toMatchObject({
-      canUse: false,
-      cannotUseReason: CannotUseReason.ProductRewardNoApplicableProduct,
+      canUse: true,
+      cannotUseReason: CannotUseReason.CanUse,
       externalProductId: 'P001',
+    })
+    expect(buildMockReward(reward({ productDiscountMode: ProductDiscountMode.FixedFinalPrice, productDiscountValue: 90 }), request([{
+      originalId: 'OUTRO-SKU', lineId: 'line-1', title: 'Outro', quantity: 1,
+      productPrice: 50, productDiscountPrice: 40, isActive: true,
+    }]))).toMatchObject({
+      canUse: true,
+      cannotUseReason: CannotUseReason.CanUse,
     })
   })
 
-  it('usa o preço promocional e respeita cumulatividade e benefício real', () => {
-    const promotional = product({ productPrice: 100, productDiscountPrice: 80 })
-    expect(buildMockReward(reward(), request([promotional])).canUse).toBe(true)
-    expect(buildMockReward(reward({ rewardCanBeCumulative: false }), request([promotional]))).toMatchObject({
+  it('continua respeitando desconto manual e cumulatividade da recompensa', () => {
+    expect(buildMockReward(reward({ rewardCanBeCumulative: false }), { ...request([]), discountValue: 10 })).toMatchObject({
       canUse: false,
-      cannotUseReason: CannotUseReason.ProductRewardNoApplicableProduct,
-    })
-    expect(buildMockReward(reward({ productDiscountMode: ProductDiscountMode.FixedFinalPrice, productDiscountValue: 90 }), request([promotional]))).toMatchObject({
-      canUse: false,
-      cannotUseReason: CannotUseReason.ProductRewardNoApplicableProduct,
+      cannotUseReason: CannotUseReason.CannotUseCumulativeDiscount,
     })
   })
 
@@ -64,6 +54,17 @@ describe('mock do contrato POS de ProductDiscount', () => {
     expect(buildMockReward(reward({ externalProductId: 'P009', productDiscountMode: ProductDiscountMode.FreeGift, productDiscountValue: 0 }), request([]))).toMatchObject({
       canUse: true,
       cannotUseReason: CannotUseReason.CanUse,
+    })
+  })
+
+  it('bloqueia somente configuração offline inválida ou sem disponibilidade', () => {
+    expect(buildMockReward(reward({ externalProductId: undefined }), request([]))).toMatchObject({
+      canUse: false,
+      cannotUseReason: CannotUseReason.ProductRewardInvalidConfiguration,
+    })
+    expect(buildMockReward(reward({ productAvailableQuantity: 0 }), request([]))).toMatchObject({
+      canUse: false,
+      cannotUseReason: CannotUseReason.ProductRewardUsageLimitReached,
     })
   })
 
