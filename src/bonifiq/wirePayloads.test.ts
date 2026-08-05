@@ -6,7 +6,6 @@ import {
   buildChallengeValidationBody,
   buildOrderBody,
   buildPartialCancelBody,
-  buildProductRedeemBody,
   buildRedeemBody,
 } from './wirePayloads'
 import type { OrderRequest } from './types'
@@ -27,19 +26,19 @@ describe('payloads enviados à API', () => {
     })
   })
 
-  it('monta o resgate de produto com casing recursivo', () => {
-    expect(buildProductRedeemBody({
+  it('usa o mesmo body mínimo para produto ou brinde', () => {
+    const body = buildRedeemBody({
       rewardId: 5,
       customerId: '12345678900',
       originalKey: 'KEY-2',
-      product: { externalProductId: 'P009', quantity: 1, productPrice: 29.9, productDiscountPrice: null, hasPromotion: false },
-    })).toEqual({
-      RewardConfigurationId: 5,
-      CustomerId: '12345678900',
-      OriginalKey: 'KEY-2',
-      RedeemOrigin: 5,
-      Product: { ExternalProductId: 'P009', Quantity: 1, ProductPrice: 29.9, HasPromotion: false },
     })
+    expect(body).toEqual({ CustomerId: '12345678900', OriginalKey: 'KEY-2', RedeemOrigin: 5 })
+    expect(body).not.toHaveProperty('Product')
+    expect(body).not.toHaveProperty('Quantity')
+    expect(body).not.toHaveProperty('ProductPrice')
+    expect(body).not.toHaveProperty('ProductDiscountPrice')
+    expect(body).not.toHaveProperty('HasPromotion')
+    expect(body).not.toHaveProperty('ForceGenerateCoupon')
   })
 
   it('não inclui identificadores de rota nos bodies de challenge e cancelamento', () => {

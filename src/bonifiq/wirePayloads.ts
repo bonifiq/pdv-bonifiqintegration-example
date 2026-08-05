@@ -6,7 +6,6 @@ import type {
   PartialCancelRequest,
   ProductBrandInput,
   ProductCategoryInput,
-  ProductRedeemRequest,
   RedeemRequest,
 } from './types'
 
@@ -84,20 +83,6 @@ export const buildRedeemBody = (request: RedeemRequest): Record<string, unknown>
   ...(request.value !== null && request.value !== undefined ? { Value: request.value } : {}),
   OriginalKey: request.originalKey,
   RedeemOrigin: REDEEM_ORIGIN_PDV,
-})
-
-export const buildProductRedeemBody = (request: ProductRedeemRequest): Record<string, unknown> => ({
-  RewardConfigurationId: request.rewardId,
-  CustomerId: request.customerId,
-  OriginalKey: request.originalKey,
-  RedeemOrigin: REDEEM_ORIGIN_PDV,
-  Product: compact({
-    ExternalProductId: request.product.externalProductId,
-    Quantity: request.product.quantity,
-    ProductPrice: request.product.productPrice,
-    ProductDiscountPrice: request.product.productDiscountPrice,
-    HasPromotion: request.product.hasPromotion,
-  }),
 })
 
 export const buildOrderBody = (request: OrderRequest): Record<string, unknown> => compact({

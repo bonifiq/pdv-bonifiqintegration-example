@@ -33,7 +33,9 @@ O cenário “Falha e retry” falha uma vez e confirma no inspetor que a segund
 | Challenge sem `Code` e sem sucesso | Bloquear resgate e oferecer retry/cancelamento |
 | Código inválido | Manter popup e permitir nova digitação |
 | Redeem incerto/timeout | Repetir com a mesma `OriginalKey` |
-| Produto inexistente | Não habilitar a recompensa; mostrar motivo local explícito |
+| Recompensa inelegível em `/available` | Respeitar `CanUse=false` e exibir `CannotUseReason` |
+| SKU offline inexistente no catálogo do PDV | Não resgatar; mostrar motivo local explícito |
+| SKU retornado mudou depois do `/available` | Estornar imediatamente; bloquear pedido até confirmar a compensação |
 | Estorno falhou | Não liberar edição e não remover produto resgatado |
 | Pedido falhou | Manter venda e resgate para retry; não duplicar pagamento |
 
@@ -44,7 +46,7 @@ O fluxo possui duas operações independentes:
 1. resgatar o benefício;
 2. registrar o pedido pago.
 
-Persistir `RewardId`, `ExternalCode`, `OriginalKey` e ID do pedido permite recuperar a operação depois de reinício ou falha de rede. Nesta demo, pedidos são mantidos apenas em memória; um PDV real deve persistir esses dados transacionalmente.
+Persistir `RewardId`, `ExternalCode`, `OriginalKey`, `ExternalProductId` quando houver e ID do pedido permite recuperar a operação depois de reinício ou falha de rede. Nesta demo, pedidos são mantidos apenas em memória; um PDV real deve persistir esses dados transacionalmente.
 
 Ao editar a compra depois do resgate:
 

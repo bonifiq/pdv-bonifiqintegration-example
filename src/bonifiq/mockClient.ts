@@ -2,10 +2,10 @@ import { mockCustomerPoints, mockCustomers, mockRewardsData } from './mockFixtur
 import { getActiveScenario } from './scenarios'
 import {
   CannotUseReason,
-  ProductDiscountMode,
   RewardType,
   type ApiResult,
   type AvailableReward,
+  type AvailableRewardsRequest,
   type BonifiqClient,
   type RewardCancellationResponse,
   type RedeemResponse,
@@ -36,29 +36,38 @@ const customerPoints = mockCustomerPoints
 const customers = mockCustomers
 const rewardsData = mockRewardsData
 
-function buildReward(reward: typeof rewardsData[number], customerId: string, purchaseValue: number, discountValue: number): AvailableReward {
-  const balance = customerPoints[customerId]
-  const meetsMinimum = purchaseValue >= reward.minPurchase
+export function buildMockReward(reward: typeof rewardsData[number], request: AvailableRewardsRequest): AvailableReward {
+  const balance = customerPoints[request.customerId]
+  const meetsMinimum = request.purchaseValue >= reward.minPurchase
   const enoughPoints = balance.points >= reward.points
   const cumulative = reward.rewardCanBeCumulative ?? true
-  let canUse = meetsMinimum && enoughPoints && (discountValue <= 0 || cumulative)
+  let canUse = meetsMinimum && enoughPoints && (request.discountValue <= 0 || cumulative)
   let reason = CannotUseReason.CanUse
   let availableCashback = 0
   let maxCashbackForCurrentPurchase = 0
 
   if (!enoughPoints) reason = CannotUseReason.NotEnoughPoints
   else if (!meetsMinimum) reason = CannotUseReason.MinimumValueNotReached
-  else if (discountValue > 0 && !cumulative) reason = CannotUseReason.CannotUseCumulativeDiscount
+  else if (request.discountValue > 0 && !cumulative) reason = CannotUseReason.CannotUseCumulativeDiscount
 
   if (reward.rewardType === RewardType.Cashback) {
     availableCashback = balance.cashback
-    maxCashbackForCurrentPurchase = Math.min(balance.cashback, purchaseValue * ((reward.maxCashbackPercent || 100) / 100))
+    maxCashbackForCurrentPurchase = Math.min(balance.cashback, request.purchaseValue * ((reward.maxCashbackPercent || 100) / 100))
     canUse = maxCashbackForCurrentPurchase >= 1 && meetsMinimum
     if (!canUse) reason = balance.cashback <= 0 ? CannotUseReason.CashbackNotAvailable : CannotUseReason.MinimumValueNotReached
   }
 
   const scenario = getActiveScenario()
   const externalProductId = scenario === 'product-missing' && reward.id === 5 ? 'SKU-INEXISTENTE' : reward.externalProductId
+  if (reward.rewardType === RewardType.ProductDiscount && canUse) {
+    if (!externalProductId) {
+      canUse = false
+      reason = CannotUseReason.ProductRewardInvalidConfiguration
+    } else if (Number(reward.productAvailableQuantity ?? 1) <= 0) {
+      canUse = false
+      reason = CannotUseReason.ProductRewardUsageLimitReached
+    }
+  }
   const title = reward.title
     || (reward.rewardType === RewardType.PercentDiscount
       ? `${reward.value}% de desconto`
@@ -86,7 +95,6 @@ function buildReward(reward: typeof rewardsData[number], customerId: string, pur
     productDiscountValue: reward.productDiscountValue,
     productMaxUnitsPerRedeem: reward.productMaxUnitsPerRedeem,
     productAvailableQuantity: reward.productAvailableQuantity,
-    productDiscountTotal: 0,
   }
 }
 
@@ -99,7 +107,7 @@ export function createMockBonifiqClient(): BonifiqClient {
       if (!customer || !balance) return success({ rewards: [], availablePoints: 0, canUseReward: false, hasRewards: false, cashbackEnabled: false, availableCashback: 0, maxCashbackForCurrentPurchase: 0, shouldValidateCustomer: false, shouldValidateCustomerSignup: false })
       if (getActiveScenario() === 'no-rewards') return success({ customer, rewards: [], availablePoints: balance.points, canUseReward: false, hasRewards: false, cashbackEnabled: false, availableCashback: balance.cashback, maxCashbackForCurrentPurchase: 0, shouldValidateCustomer: false, shouldValidateCustomerSignup: false })
 
-      const rewards = Object.values(rewardsData).map(reward => buildReward(reward, request.customerId, request.purchaseValue, request.discountValue))
+      const rewards = Object.values(rewardsData).map(reward => buildMockReward(reward, request))
       const cashback = rewards.find(reward => reward.isCashback)
       return success({
         customer,
@@ -137,41 +145,14 @@ export function createMockBonifiqClient(): BonifiqClient {
       }
       const reward = rewardsData[request.rewardId]
       if (!reward || !customers[request.customerId]) return failure('REWARD_NOT_FOUND', 'Cliente ou recompensa não encontrada.', false)
-      const result: RedeemResponse = {
-        rewardId: 1000 + Math.floor(Math.random() * 9000),
-        externalCode: `BNF-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
-        originalKey: request.originalKey,
-        productDiscountTotal: 0,
-        point: { pointId: 2000 + Math.floor(Math.random() * 9000), quantity: -reward.points },
-      }
-      completedRedeems.set(request.originalKey, result)
-      return success(result)
-    },
-    async redeemProductDiscountReward(request) {
-      await delay()
-      if (completedRedeems.has(request.originalKey)) return success(completedRedeems.get(request.originalKey)!)
-      if (getActiveScenario() === 'redeem-failure' && !failedRedeemAttempts.has(request.originalKey)) {
-        failedRedeemAttempts.add(request.originalKey)
-        return failure('DEMO_REDEEM_FAILURE', 'Falha simulada. Tente novamente para comprovar a idempotência.')
-      }
-      const reward = rewardsData[request.rewardId]
-      if (!reward || reward.rewardType !== RewardType.ProductDiscount || reward.externalProductId !== request.product.externalProductId) {
-        return failure('PRODUCT_REWARD_INVALID', 'Cliente, recompensa ou produto inválido.', false)
-      }
-      const basePrice = Number(request.product.productDiscountPrice ?? request.product.productPrice ?? 0)
-      let unitDiscount = 0
-      switch (reward.productDiscountMode) {
-        case ProductDiscountMode.PercentDiscount: unitDiscount = basePrice * (Number(reward.productDiscountValue || 0) / 100); break
-        case ProductDiscountMode.FixedFinalPrice: unitDiscount = Math.max(0, basePrice - Number(reward.productDiscountValue || 0)); break
-        case ProductDiscountMode.FreeGift: unitDiscount = 0; break
-        case ProductDiscountMode.FixedDiscountAmount: unitDiscount = Math.min(basePrice, Number(reward.productDiscountValue || 0)); break
+      if (reward.rewardType === RewardType.ProductDiscount && (!reward.externalProductId || Number(reward.productAvailableQuantity ?? 1) <= 0)) {
+        return failure('PRODUCT_REWARD_INVALID', 'A recompensa não possui um produto offline ativo e disponível.', false)
       }
       const result: RedeemResponse = {
         rewardId: 1000 + Math.floor(Math.random() * 9000),
         externalCode: `BNF-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
         originalKey: request.originalKey,
-        externalProductId: request.product.externalProductId,
-        productDiscountTotal: Number((unitDiscount * request.product.quantity).toFixed(2)),
+        externalProductId: reward.rewardType === RewardType.ProductDiscount ? reward.externalProductId : null,
         point: { pointId: 2000 + Math.floor(Math.random() * 9000), quantity: -reward.points },
       }
       completedRedeems.set(request.originalKey, result)

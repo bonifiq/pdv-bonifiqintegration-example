@@ -1,9 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { calculateProductRewardUnitPriceCents, calculateRewardDiscountCents, shouldRunCustomerChallenge } from './rewardRules'
-import { CannotUseReason, ProductDiscountMode, RewardType, type AvailableReward, type RedeemResponse } from './types'
+import { calculateProductRewardDiscountCents, calculateProductRewardUnitPriceCents, calculateRewardDiscountCents, shouldRunCustomerChallenge } from './rewardRules'
+import { CannotUseReason, ProductDiscountMode, RewardType, type AvailableReward } from './types'
 
 const productReward = (mode: ProductDiscountMode, value: number): AvailableReward => ({ id: 1, title: 'Produto', rewardType: RewardType.ProductDiscount, value: 0, points: 0, canUse: true, cannotUseReason: CannotUseReason.CanUse, rewardCanBeCumulative: true, isCashback: false, canSelectValue: false, availableCashback: 0, maxCashbackForCurrentPurchase: 0, productDiscountMode: mode, productDiscountValue: value })
-const redeem = (discount: number): RedeemResponse => ({ rewardId: 10, externalCode: 'EXT', originalKey: 'KEY', productDiscountTotal: discount })
 
 describe('regras monetárias de recompensa', () => {
   it('calcula descontos comuns em centavos', () => {
@@ -14,12 +13,22 @@ describe('regras monetárias de recompensa', () => {
   })
 
   it.each([
-    [ProductDiscountMode.PercentDiscount, 20, 2000, 8000],
-    [ProductDiscountMode.FixedFinalPrice, 60, 4000, 6000],
-    [ProductDiscountMode.FreeGift, 0, 0, 0],
-    [ProductDiscountMode.FixedDiscountAmount, 15, 1500, 8500],
-  ])('calcula preço final no modo %s', (mode, value, discountCents, expected) => {
-    expect(calculateProductRewardUnitPriceCents(productReward(mode, value), redeem(discountCents / 100), 10000)).toBe(expected)
+    [ProductDiscountMode.PercentDiscount, 20, 8000],
+    [ProductDiscountMode.FixedFinalPrice, 60, 6000],
+    [ProductDiscountMode.FreeGift, 0, 0],
+    [ProductDiscountMode.FixedDiscountAmount, 15, 8500],
+  ])('calcula localmente o preço final no modo %s', (mode, value, expected) => {
+    expect(calculateProductRewardUnitPriceCents(productReward(mode, value), 10000)).toBe(expected)
+  })
+
+  it('usa o preço promocional efetivo e expõe o desconto local em centavos', () => {
+    const reward = productReward(ProductDiscountMode.PercentDiscount, 20)
+    expect(calculateProductRewardUnitPriceCents(reward, 8000)).toBe(6400)
+    expect(calculateProductRewardDiscountCents(reward, 8000)).toBe(1600)
+  })
+
+  it('respeita exatamente o preço final fixo configurado', () => {
+    expect(calculateProductRewardUnitPriceCents(productReward(ProductDiscountMode.FixedFinalPrice, 120), 10000)).toBe(12000)
   })
 
   it('exige challenge também para validação de cadastro', () => {

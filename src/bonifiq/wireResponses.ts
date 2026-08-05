@@ -58,7 +58,6 @@ export const buildAvailableRewardsResponse = (response: AvailableRewardsResponse
     ProductDiscountValue: reward.productDiscountValue,
     ProductMaxUnitsPerRedeem: reward.productMaxUnitsPerRedeem,
     ProductAvailableQuantity: reward.productAvailableQuantity,
-    ProductDiscountTotal: reward.productDiscountTotal,
   })),
   HasRestrictedItems: response.hasRestrictedItems,
   RestrictedValue: response.restrictedValue,
@@ -101,7 +100,6 @@ export const buildRedeemResponse = (response: RedeemResponse): Record<string, un
   OriginalKey: response.originalKey,
   Coupon: response.coupon ? pascalizeKeys(response.coupon) : undefined,
   ExternalProductId: response.externalProductId,
-  ProductDiscountTotal: response.productDiscountTotal,
 })
 
 export const buildRewardCancellationResponse = (response: RewardCancellationResponse): Record<string, unknown> => compact({

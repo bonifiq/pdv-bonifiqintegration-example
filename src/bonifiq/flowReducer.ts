@@ -14,7 +14,7 @@ export type IntegrationPhase =
   | 'submitting-order'
   | 'error'
 
-export type RetryAction = 'rewards' | 'challenge' | 'validation' | 'redeem' | 'order' | 'cancel-reward'
+export type RetryAction = 'rewards' | 'challenge' | 'validation' | 'redeem' | 'order' | 'cancel-reward' | 'remove-reward'
 
 export interface IntegrationFlowState {
   phase: IntegrationPhase

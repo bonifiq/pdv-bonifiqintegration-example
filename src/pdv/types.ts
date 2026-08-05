@@ -16,7 +16,6 @@ export interface CartItem extends CatalogProduct {
   quantity: number
   originalId?: string
   originalPriceCents?: MoneyCents
-  productDiscountTotalCents?: MoneyCents
   isRewardProduct?: boolean
   rewardLabel?: string | null
 }

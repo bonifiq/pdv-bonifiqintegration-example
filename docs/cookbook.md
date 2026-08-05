@@ -36,15 +36,21 @@ Resposta relevante:
   "ShouldValidateCustomer": true,
   "AvailablePoints": 1500,
   "Rewards": [{
-    "Id": 5,
+    "Id": 461,
+    "Title": "Caneca",
     "RewardType": 5,
     "CanUse": true,
+    "CannotUseReason": 0,
     "ExternalProductId": "P009",
-    "ProductDisplayName": "Caneca BonifiQ",
-    "ProductDiscountMode": 2
+    "ProductDisplayName": "Caneca",
+    "ProductDiscountMode": 1,
+    "ProductDiscountValue": 0.01,
+    "ProductMaxUnitsPerRedeem": 1
   }]
 }
 ```
+
+`PurchaseValue` é o total bruto e `DiscountValue` leva descontos próprios do PDV separadamente. `Products` participa das regras de cashback e itens restritos, mas não determina a disponibilidade offline de `RewardType=5`. No exemplo, a venda possui somente `P002`, porém a recompensa `P009` continua utilizável porque será adicionada como uma nova linha. O redeem POS desta versão sempre confirma exatamente uma unidade.
 
 ## Cliente TypeScript
 
@@ -83,7 +89,7 @@ curl --request POST \
 
 Pule essas chamadas somente quando `ShouldValidateCustomer=false` **e** `ShouldValidateCustomerSignup=false`. Quando a validação for de cadastro, envie também `Document`, `Name` e, se disponíveis, `Email` e `Phone` no challenge.
 
-## Recompensa comum
+## Resgatar qualquer recompensa
 
 ```bash
 curl --request POST \
@@ -97,39 +103,45 @@ curl --request POST \
   }'
 ```
 
-Para cashback, `Value` recebe o valor escolhido, limitado por `MaxCashbackForCurrentPurchase`.
+Para cashback, `Value` recebe o valor escolhido, limitado por `MaxCashbackForCurrentPurchase`. Para os demais tipos, inclusive `RewardType=5`, omita `Value`.
 
 ## Brinde ou desconto em produto
 
-`RewardType=5` usa o endpoint fora de `/POS`:
+`RewardType=5` usa exatamente o mesmo endpoint POS. Não envie produto, quantidade, preço, promoção ou `ForceGenerateCoupon` no redeem:
 
 ```bash
 curl --request POST \
-  --url '<BONIFIQ_BASE_URL>/RewardConfigurations/5/product-discount/redeem' \
+  --url '<BONIFIQ_BASE_URL>/POS/rewards/461/redeem' \
   --header 'Authorization: Basic <CREDENCIAL_BASE64>' \
   --header 'Content-Type: application/json' \
   --data '{
-    "RewardConfigurationId":5,
     "CustomerId":"12345678900",
-    "OriginalKey":"PDV-REWARD-5-123",
-    "RedeemOrigin":5,
-    "Product":{
-      "ExternalProductId":"P009",
-      "Quantity":1,
-      "ProductPrice":29.90,
-      "HasPromotion":false
-    }
+    "OriginalKey":"PDV-REWARD-461-123",
+    "RedeemOrigin":5
   }'
+```
+
+Resposta POS relevante:
+
+```json
+{
+  "Result": {
+    "RewardId": 9876,
+    "ExternalCode": "BNF-EXTERNAL-CODE",
+    "OriginalKey": "PDV-REWARD-461-123",
+    "ExternalProductId": "P009"
+  }
+}
 ```
 
 | `ProductDiscountMode` | Significado | Preço final da linha |
 |---:|---|---|
-| `0` | Percentual | Preço local menos `ProductDiscountTotal / Quantity` |
-| `1` | Preço final fixo | Preço local menos `ProductDiscountTotal / Quantity` |
-| `2` | Brinde | Zero; o contrato retorna desconto total zero nesse modo |
-| `3` | Valor fixo | Preço local menos `ProductDiscountTotal / Quantity` |
+| `0` | Percentual | `preço do catálogo - arredondar(preço do catálogo × valor / 100)` |
+| `1` | Preço final fixo | `ProductDiscountValue` |
+| `2` | Brinde | Zero |
+| `3` | Valor fixo | `máximo(0, preço do catálogo - ProductDiscountValue)` |
 
-Adicione uma linha separada ao carrinho, mesmo que o SKU já exista. Produtos de brinde podem estar ocultos da venda direta, mas precisam existir no catálogo para serem localizados por `ExternalProductId`.
+O POS não recebe `ProductDiscountTotal`: esse campo pertence somente ao fluxo de checkout online. O PDV calcula o valor financeiro em centavos usando o preço atual de seu catálogo e os dados de `/available`, valida o `ExternalProductId` devolvido e adiciona uma linha separada de quantidade `1`. Essa regra vale para os quatro modos, inclusive quando o SKU já existe no carrinho. Produtos de recompensa podem estar ocultos da venda direta, mas precisam existir no catálogo local.
 
 ## Registrar pedido
 

@@ -980,11 +980,23 @@ body {
 .bonifiq-clear-button {
   width: 25px;
   height: 25px;
+  display: grid;
+  place-items: center;
   color: #94a3b8;
   background: transparent;
   border-radius: 50%;
   font-size: 18px;
   line-height: 1;
+}
+
+.bonifiq-clear-button svg {
+  width: 14px;
+  height: 14px;
+}
+
+.bonifiq-clear-button:disabled {
+  cursor: wait;
+  opacity: 0.55;
 }
 
 .bonifiq-clear-button:hover:not(:disabled) {
@@ -2122,7 +2134,8 @@ body {
 .trace-summary strong { color: #1e293b; }
 .trace-summary em { color: #94a3b8; font-size: 11px; font-style: normal; }
 .trace-details { padding: 0 14px 16px 54px; }
-.trace-details p { color: #475569; font-size: 13px; }
+.trace-reason { display: grid; gap: 3px; margin: 4px 0 12px; padding: 9px 10px; border-radius: 7px; color: #475569; background: #f8fafc; font-size: 12px; }
+.trace-reason strong { color: #334155; font-size: 10px; letter-spacing: .04em; text-transform: uppercase; }
 .trace-details label { display: block; margin: 12px 0 5px; color: #64748b; font-size: 11px; font-weight: 800; text-transform: uppercase; }
 .trace-details pre { max-height: 230px; overflow: auto; margin: 0; padding: 11px; border-radius: 8px; color: #dbeafe; background: #0f172a; font-size: 11px; white-space: pre-wrap; }
 .trace-persists { padding: 9px; border-radius: 7px; color: #1e40af; background: #eff6ff; font-size: 12px; }
