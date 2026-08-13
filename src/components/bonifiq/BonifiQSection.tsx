@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { getCannotUseReason, getProductRewardDescription, isFreeGift, isProductReward } from '../../bonifiq/rewardRules'
 import { RewardType, type AvailableReward, type AvailableRewardsResponse } from '../../bonifiq/types'
 import type { CatalogProduct } from '../../pdv/types'
 
-type RewardFilter = 'all' | 'products' | 'discounts' | 'cashback'
+type RewardKind = 'products' | 'discounts' | 'cashback'
 
 interface Props {
   rewardsData: AvailableRewardsResponse | null
@@ -21,7 +21,6 @@ const currency = (value: number) => Number(value || 0).toLocaleString('pt-BR', {
 
 export function BonifiQSection({ rewardsData, loading, selectedReward, catalogProducts, onConfirmReward, onRemoveReward, isRedeemed, canRemoveReward, disabled }: Props) {
   const [pickerOpen, setPickerOpen] = useState(false)
-  const [filter, setFilter] = useState<RewardFilter>('all')
   const [rewardToConfirm, setRewardToConfirm] = useState<AvailableReward | null>(null)
   const [cashbackValue, setCashbackValue] = useState(0)
 
@@ -34,11 +33,9 @@ export function BonifiQSection({ rewardsData, loading, selectedReward, catalogPr
 
   const rewards = rewardsData?.rewards || []
   const productExists = (reward: AvailableReward) => !isProductReward(reward) || catalogProducts.some(product => product.id.toLowerCase() === String(reward.externalProductId || '').toLowerCase())
-  const category = (reward: AvailableReward): RewardFilter => reward.isCashback ? 'cashback' : isProductReward(reward) ? 'products' : 'discounts'
+  const category = (reward: AvailableReward): RewardKind => reward.isCashback ? 'cashback' : isProductReward(reward) ? 'products' : 'discounts'
   const selectable = rewards.filter(reward => reward.canUse && productExists(reward))
-  const counts = useMemo(() => ({ products: rewards.filter(item => category(item) === 'products').length, discounts: rewards.filter(item => category(item) === 'discounts').length, cashback: rewards.filter(item => category(item) === 'cashback').length }), [rewards])
-  const filters = ([['all', 'Todas', rewards.length], ['products', 'Produtos', counts.products], ['discounts', 'Descontos', counts.discounts], ['cashback', 'Cashback', counts.cashback]] as const).filter(item => item[0] === 'all' || item[2] > 0)
-  const filtered = filter === 'all' ? rewards : rewards.filter(reward => category(reward) === filter)
+  const displayedRewards = [...rewards].sort((left, right) => Number(right.canUse && productExists(right)) - Number(left.canUse && productExists(left)))
 
   const valueLabel = (reward: AvailableReward) => {
     if (reward.isCashback) return `Até ${currency(reward.maxCashbackForCurrentPurchase)}`
@@ -79,9 +76,9 @@ export function BonifiQSection({ rewardsData, loading, selectedReward, catalogPr
         {rewardsData?.shouldValidateCustomer && <div className="reward-confirm-validation">🔐 A identidade do cliente será validada antes do resgate.</div>}
         <div className="reward-confirm-actions"><button className="btn btn-secondary" onClick={() => setRewardToConfirm(null)}>Voltar</button><button className="btn reward-confirm-submit" disabled={disabled} onClick={async () => { await onConfirmReward(rewardToConfirm, rewardToConfirm.isCashback ? cashbackValue : null); closePicker() }}>Confirmar e resgatar</button></div>
       </div> : <div className="reward-picker-modal" role="dialog" aria-modal="true" aria-labelledby="reward-picker-title">
-        <header className="reward-picker-header"><div><span className="reward-picker-eyebrow">BonifiQ · {rewardsData?.availablePoints || 0} pontos</span><h2 id="reward-picker-title">Escolha um benefício</h2><p>CanUse e Requirements retornados pela API são autoritativos.</p></div><button className="reward-picker-close" aria-label="Fechar lista de recompensas" onClick={closePicker}>×</button></header>
-        <div className="reward-picker-filters" aria-label="Filtrar recompensas">{filters.map(([id, label, count]) => <button key={id} className={filter === id ? 'active' : ''} aria-pressed={filter === id} onClick={() => setFilter(id)}>{label}<span>{count}</span></button>)}</div>
-        <div className="reward-picker-grid">{filtered.map(reward => {
+        <header className="reward-picker-header"><div><span className="reward-picker-eyebrow">BonifiQ · {rewardsData?.availablePoints || 0} pontos</span><h2 id="reward-picker-title">Benefícios disponíveis</h2><p>Confira todas as opções e escolha uma para aplicar à venda.</p></div><button className="reward-picker-close" aria-label="Fechar lista de recompensas" onClick={closePicker}>×</button></header>
+        <div className="reward-picker-overview"><div><strong>{rewards.length} {rewards.length === 1 ? 'benefício encontrado' : 'benefícios encontrados'}</strong><span>Todas as recompensas aparecem juntas nesta lista.</span></div><span className="reward-picker-available-count">{selectable.length} {selectable.length === 1 ? 'pode ser resgatado agora' : 'podem ser resgatados agora'}</span></div>
+        <div className="reward-picker-grid">{displayedRewards.map(reward => {
           const exists = productExists(reward); const enabled = reward.canUse && exists; const kind = category(reward)
           return <button type="button" key={reward.id} className={`reward-picker-card ${!enabled ? 'disabled' : ''}`} onClick={() => openConfirmation(reward)} disabled={disabled || !enabled}>
             <span className="reward-picker-card-topline"><span className="reward-picker-card-icon">{isFreeGift(reward) ? '🎁' : isProductReward(reward) ? '🛍️' : reward.isCashback ? '💰' : '🏷️'}</span><span className={`reward-picker-card-type ${kind}`}>{isFreeGift(reward) ? 'Brinde' : isProductReward(reward) ? 'Produto' : reward.isCashback ? 'Cashback' : 'Desconto'}</span></span>
