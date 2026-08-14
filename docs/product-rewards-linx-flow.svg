@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="300" viewBox="0 0 1200 300" role="img" aria-labelledby="title description">
+  <title id="title">Fluxo simples de recompensa de produto no Linx POS</title>
+  <desc id="description">O Linx consulta os benefícios, confirma e resgata a recompensa, adiciona uma unidade do produto com o desconto, conclui o pagamento e registra o pedido com o código externo. Se a venda não for concluída, o resgate é estornado.</desc>
+
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto" markerUnits="strokeWidth">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b"/>
+    </marker>
+    <style>
+      .title { font: 700 24px Arial, sans-serif; fill: #172554; }
+      .step { fill: #f8fafc; stroke: #cbd5e1; stroke-width: 2; }
+      .step-number { fill: #315ee9; }
+      .number { font: 700 16px Arial, sans-serif; fill: #ffffff; text-anchor: middle; dominant-baseline: middle; }
+      .label { font: 700 16px Arial, sans-serif; fill: #0f172a; text-anchor: middle; }
+      .detail { font: 13px Arial, sans-serif; fill: #475569; text-anchor: middle; }
+      .arrow { stroke: #64748b; stroke-width: 2; fill: none; marker-end: url(#arrow); }
+      .cancel { fill: #fff7ed; stroke: #f59e0b; stroke-width: 1.5; stroke-dasharray: 5 4; }
+      .cancel-text { font: 13px Arial, sans-serif; fill: #9a3412; text-anchor: middle; }
+    </style>
+  </defs>
+
+  <rect width="1200" height="300" fill="#ffffff"/>
+  <text class="title" x="600" y="36" text-anchor="middle">Recompensa de produto no Linx POS</text>
+
+  <path class="arrow" d="M 238 130 H 276"/>
+  <path class="arrow" d="M 466 130 H 504"/>
+  <path class="arrow" d="M 694 130 H 732"/>
+  <path class="arrow" d="M 922 130 H 960"/>
+
+  <g>
+    <rect class="step" x="48" y="75" width="190" height="110" rx="14"/>
+    <circle class="step-number" cx="73" cy="100" r="15"/>
+    <text class="number" x="73" y="101">1</text>
+    <text class="label" x="143" y="132">Consultar benefícios</text>
+    <text class="detail" x="143" y="158">POST /rewards/available</text>
+  </g>
+
+  <g>
+    <rect class="step" x="276" y="75" width="190" height="110" rx="14"/>
+    <circle class="step-number" cx="301" cy="100" r="15"/>
+    <text class="number" x="301" y="101">2</text>
+    <text class="label" x="371" y="132">Confirmar e resgatar</text>
+    <text class="detail" x="371" y="158">POST /rewards/{id}/redeem</text>
+  </g>
+
+  <g>
+    <rect class="step" x="504" y="75" width="190" height="110" rx="14"/>
+    <circle class="step-number" cx="529" cy="100" r="15"/>
+    <text class="number" x="529" y="101">3</text>
+    <text class="label" x="599" y="126">Adicionar produto</text>
+    <text class="detail" x="599" y="151">1 unidade + desconto</text>
+    <text class="detail" x="599" y="170">calculado pelo Linx</text>
+  </g>
+
+  <g>
+    <rect class="step" x="732" y="75" width="190" height="110" rx="14"/>
+    <circle class="step-number" cx="757" cy="100" r="15"/>
+    <text class="number" x="757" y="101">4</text>
+    <text class="label" x="827" y="132">Concluir pagamento</text>
+    <text class="detail" x="827" y="158">Valor líquido da venda</text>
+  </g>
+
+  <g>
+    <rect class="step" x="960" y="75" width="190" height="110" rx="14"/>
+    <circle class="step-number" cx="985" cy="100" r="15"/>
+    <text class="number" x="985" y="101">5</text>
+    <text class="label" x="1055" y="126">Registrar pedido</text>
+    <text class="detail" x="1055" y="151">POST /POS/orders</text>
+    <text class="detail" x="1055" y="170">Coupon = ExternalCode</text>
+  </g>
+
+  <path d="M 371 185 V 213" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="5 4" fill="none"/>
+  <rect class="cancel" x="238" y="213" width="266" height="50" rx="12"/>
+  <text class="cancel-text" x="371" y="235">Venda não concluída?</text>
+  <text class="cancel-text" x="371" y="253">Estornar DELETE /rewards/{RewardId}</text>
+</svg>
