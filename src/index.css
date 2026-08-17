@@ -2140,3 +2140,718 @@ body {
   .integration-notice { align-items: stretch; flex-direction: column; }
   .integration-notice > div:last-child { flex-wrap: wrap; }
 }
+
+/* Linx POS: apresentação alternativa inspirada em aplicações Windows clássicas. */
+.linxpos-theme {
+  min-height: 100vh;
+  color: #111827;
+  background: #d4d0c8;
+  font-family: Tahoma, Arial, sans-serif;
+  font-size: 12px;
+}
+
+.linxpos-header {
+  min-height: 38px;
+  display: grid;
+  grid-template-columns: 150px 1fr auto;
+  align-items: center;
+  gap: 18px;
+  padding: 5px 12px;
+  color: white;
+  background: linear-gradient(180deg, #70869b 0%, #3f566e 48%, #253b53 52%, #60768c 100%);
+  border-bottom: 2px solid #1b2a3a;
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.5);
+  letter-spacing: 0.04em;
+}
+
+.linxpos-brand {
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-shadow: 1px 1px #25364a;
+}
+
+.linxpos-brand span {
+  margin-left: 2px;
+  color: #dbeafe;
+  font-weight: 500;
+}
+
+.linxpos-screen-name {
+  font-size: 14px;
+  letter-spacing: 0.14em;
+}
+
+.linxpos-terminal-info {
+  display: flex;
+  gap: 10px;
+  color: #eef6ff;
+  font-size: 10px;
+}
+
+.linxpos-container {
+  max-width: none;
+  padding: 7px 8px 10px;
+}
+
+.linxpos-theme .developer-toolbar {
+  margin: 0 0 7px;
+  background: #ece9d8;
+  border: 2px solid;
+  border-color: #ffffff #7f9db9 #7f9db9 #ffffff;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.linxpos-theme .developer-toolbar-main {
+  min-height: 42px;
+  padding: 6px 9px;
+}
+
+.linxpos-theme .developer-toolbar-main strong,
+.linxpos-theme .developer-toolbar-main small {
+  color: #1f2937;
+}
+
+.linxpos-theme .developer-toolbar select,
+.linxpos-theme .developer-toolbar .btn {
+  min-height: 28px;
+  padding: 4px 9px;
+  color: #111827;
+  background: #f3f3ef;
+  border: 2px solid;
+  border-color: #ffffff #6b7280 #6b7280 #ffffff;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.linxpos-theme .mode-badge {
+  border-radius: 2px;
+}
+
+.linxpos-window {
+  min-height: calc(100vh - 108px);
+  overflow: hidden;
+  background: #f6f7f8;
+  border: 2px solid;
+  border-color: #ffffff #667788 #667788 #ffffff;
+  box-shadow: inset 1px 1px #bac6d2;
+}
+
+.linxpos-identification-bar {
+  min-height: 48px;
+  display: grid;
+  grid-template-columns: auto minmax(240px, 1fr) auto;
+  align-items: center;
+  gap: 32px;
+  padding: 7px 18px;
+  color: #17324d;
+  background: linear-gradient(180deg, #bce6fa, #dceef7 70%, #bad5e3);
+  border-bottom: 1px solid #7ba4bb;
+  box-shadow: inset 0 1px #eefaff;
+}
+
+.linxpos-identification-bar span {
+  white-space: nowrap;
+}
+
+.linxpos-identification-bar b {
+  margin-right: 8px;
+  color: #547187;
+  font-weight: 700;
+}
+
+.linxpos-workspace {
+  min-height: calc(100vh - 160px);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 390px 118px;
+  background: #f7f8f9;
+}
+
+.linxpos-payment-workspace {
+  grid-template-columns: minmax(0, 1fr) 118px;
+}
+
+.linxpos-main-area,
+.linxpos-cart-area {
+  min-width: 0;
+  padding: 8px;
+  border-right: 1px solid #b7c2cc;
+}
+
+.linxpos-cart-area {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: #eef3f6;
+}
+
+.linxpos-section-title {
+  margin: -1px -1px 8px;
+  padding: 5px 9px;
+  color: #134f7c;
+  background: linear-gradient(180deg, #edf8fd, #c6e4f3);
+  border: 1px solid #9bbdce;
+  font-weight: 700;
+  text-align: left;
+}
+
+.linxpos-action-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 9px 6px;
+  background: linear-gradient(90deg, #1f65a4, #3d8ac9 52%, #1f65a4);
+  border-left: 1px solid #0e4778;
+  box-shadow: inset 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+.linxpos-action-button {
+  min-height: 82px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 6px 4px;
+  color: white;
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-family: inherit;
+  text-shadow: 1px 1px #16446c;
+}
+
+.linxpos-action-button:hover:not(:disabled),
+.linxpos-action-button:focus-visible {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.48);
+  outline: none;
+}
+
+.linxpos-action-button.primary {
+  background: rgba(255, 244, 181, 0.14);
+}
+
+.linxpos-action-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.linxpos-action-button > span {
+  min-height: 31px;
+  font-size: 27px;
+  line-height: 1;
+  filter: drop-shadow(1px 1px 0 #174c78);
+}
+
+.linxpos-action-button strong {
+  font-size: 11px;
+}
+
+.linxpos-action-button small {
+  color: #dbeafe;
+  font-size: 8px;
+  text-align: center;
+}
+
+.linxpos-theme .card,
+.linxpos-theme .products-section,
+.linxpos-theme .customer-section,
+.linxpos-theme .payment-section,
+.linxpos-theme .bonifiq-section,
+.linxpos-theme .totals-section {
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.linxpos-theme .card {
+  background: #f4f3ee;
+  border: 2px solid;
+  border-color: #ffffff #7d8790 #7d8790 #ffffff;
+}
+
+.linxpos-theme .products-section h2 {
+  display: none;
+}
+
+.linxpos-theme .products-grid {
+  grid-template-columns: repeat(auto-fill, minmax(145px, 1fr));
+  gap: 7px;
+}
+
+.linxpos-theme .product-card {
+  min-height: 126px;
+  padding: 8px;
+  color: #111827;
+  background: #f0f0ec;
+  border: 2px solid;
+  border-color: #ffffff #7f7f7f #7f7f7f #ffffff;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.linxpos-theme .product-card:hover,
+.linxpos-theme .product-card:focus-visible {
+  background: #fff6cb;
+  border-color: #fff7d5 #a68b30 #a68b30 #fff7d5;
+  box-shadow: none;
+  outline: 1px dotted #1f2937;
+  outline-offset: -5px;
+  transform: none;
+}
+
+.linxpos-theme .product-image {
+  height: 70px;
+  margin-bottom: 6px;
+  background: #ffffff;
+  border: 1px inset #c4c4c4;
+  border-radius: 0;
+  font-size: 28px;
+}
+
+.linxpos-theme .product-name {
+  color: #111827;
+  font-size: 11px;
+}
+
+.linxpos-theme .product-price {
+  color: #003f72;
+  font-size: 13px;
+}
+
+.linxpos-theme .customer-section {
+  padding: 8px;
+  background: #ece9d8;
+  border: 1px solid #aab3bb;
+}
+
+.linxpos-theme .customer-section label {
+  color: #374151;
+  font-size: 10px;
+}
+
+.linxpos-theme .customer-info {
+  padding: 5px 7px;
+  background: white;
+  border: 1px inset #9ca3af;
+  border-radius: 0;
+}
+
+.linxpos-theme .customer-avatar {
+  width: 30px;
+  height: 30px;
+  color: white;
+  background: #2f73aa;
+  border-radius: 0;
+  font-size: 13px;
+}
+
+.linxpos-theme .customer-name,
+.linxpos-theme .customer-doc {
+  font-size: 10px;
+}
+
+.linxpos-theme .responsibility-badge {
+  display: none;
+}
+
+.linxpos-theme .input,
+.linxpos-theme input,
+.linxpos-theme select {
+  border-radius: 0;
+}
+
+.linxpos-theme .btn,
+.linxpos-inline-button {
+  padding: 6px 11px;
+  color: #111827;
+  background: #f1f0ea;
+  border: 2px solid;
+  border-color: #ffffff #717171 #717171 #ffffff;
+  border-radius: 0;
+  box-shadow: none;
+  font-family: inherit;
+  font-size: 11px;
+}
+
+.linxpos-theme .btn:hover:not(:disabled),
+.linxpos-inline-button:hover:not(:disabled) {
+  color: #111827;
+  background: #fff6cb;
+}
+
+.linxpos-theme .btn-primary,
+.linxpos-theme .btn-success {
+  color: #ffffff;
+  background: #2a70aa;
+  border-color: #7db3dd #174a73 #174a73 #7db3dd;
+}
+
+.linxpos-theme .cart-items {
+  min-height: 220px;
+  max-height: calc(100vh - 430px);
+  padding: 0 7px;
+  overflow: auto;
+  background: white;
+  border: 1px inset #9ca3af;
+}
+
+.linxpos-theme .cart-item {
+  padding: 7px 2px;
+  border-bottom: 1px solid #d1d5db;
+}
+
+.linxpos-theme .cart-item-icon {
+  width: 29px;
+  height: 29px;
+  background: #eef2f5;
+  border: 1px solid #cad2d9;
+  border-radius: 0;
+  font-size: 14px;
+}
+
+.linxpos-theme .cart-item-name,
+.linxpos-theme .cart-item-price {
+  font-size: 11px;
+}
+
+.linxpos-theme .cart-item-reward-badge {
+  border-radius: 0;
+}
+
+.linxpos-setup-total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 8px;
+  background: #fff7cf;
+  border: 1px solid #d6c581;
+  font-size: 11px;
+}
+
+.linxpos-setup-total strong {
+  font-size: 17px;
+}
+
+.linxpos-inline-button {
+  align-self: flex-end;
+  cursor: pointer;
+}
+
+.linxpos-payment-area {
+  display: flex;
+  flex-direction: column;
+}
+
+.linxpos-payment-customer .customer-section {
+  display: grid;
+  grid-template-columns: auto minmax(220px, 1fr);
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 7px;
+  padding: 5px 9px;
+  background: #cce8f5;
+}
+
+.linxpos-payment-customer .customer-section > label {
+  display: block;
+}
+
+.linxpos-payment-columns {
+  display: grid;
+  grid-template-columns: minmax(360px, 1fr) minmax(360px, 0.9fr);
+  gap: 8px;
+  align-items: start;
+}
+
+.linxpos-theme .payment-section,
+.linxpos-theme .bonifiq-section {
+  min-height: 272px;
+  padding: 8px;
+  background: white;
+  border: 1px solid #aeb9c2;
+}
+
+.linxpos-theme .payment-section-header {
+  padding: 4px 7px;
+  background: #e8f4fa;
+  border-bottom: 1px solid #b5cedb;
+}
+
+.linxpos-theme .payment-eyebrow,
+.linxpos-theme .payment-step-badge {
+  display: none;
+}
+
+.linxpos-theme .payment-section-header h2 {
+  color: #17324d;
+  font-size: 12px;
+}
+
+.linxpos-theme .payment-method-card {
+  padding: 7px 9px;
+  background: #fff7cf;
+  border: 1px solid #e2d69d;
+  border-radius: 0;
+}
+
+.linxpos-theme .payment-method-icon {
+  width: 30px;
+  height: 26px;
+  background: white;
+  border: 1px inset #b8b8b8;
+  border-radius: 0;
+  box-shadow: none;
+  font-size: 15px;
+}
+
+.linxpos-theme .payment-method-copy strong,
+.linxpos-theme .payment-method-copy small {
+  color: #111827;
+  font-size: 10px;
+}
+
+.linxpos-theme .payment-method-check {
+  color: #ffffff;
+  background: #248331;
+  border-radius: 0;
+}
+
+.linxpos-theme .manual-discount-card {
+  background: #f2f2ee;
+  border: 1px solid #b6bec5;
+  border-radius: 0;
+}
+
+.linxpos-theme .manual-discount-input-wrap {
+  background: white;
+  border: 1px inset #7f9db9;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.linxpos-theme .cash-total-card {
+  color: #111827;
+  background: #eef5e9;
+  border: 1px solid #a8bba0;
+  border-radius: 0;
+}
+
+.linxpos-theme .bonifiq-header {
+  padding-bottom: 7px;
+  border-bottom: 1px solid #b7c7d3;
+}
+
+.linxpos-theme .bonifiq-brand-mark,
+.linxpos-theme .bonifiq-selected-icon,
+.linxpos-theme .bonifiq-picker-trigger-icon,
+.linxpos-theme .bonifiq-balance-item {
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.linxpos-theme .bonifiq-heading h3,
+.linxpos-theme .bonifiq-heading small,
+.linxpos-theme .bonifiq-selected-content strong {
+  color: #17324d;
+}
+
+.linxpos-theme .bonifiq-picker-trigger,
+.linxpos-theme .bonifiq-selected-reward,
+.linxpos-theme .bonifiq-redeemed-status,
+.linxpos-theme .bonifiq-no-rewards {
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.linxpos-theme .bonifiq-picker-trigger {
+  background: #eaf4f9;
+  border: 2px solid;
+  border-color: #ffffff #718391 #718391 #ffffff;
+}
+
+.linxpos-theme .bonifiq-selected-reward {
+  background: #fff7cf;
+  border-color: #d2c47d;
+}
+
+.linxpos-theme .bonifiq-redeemed-status {
+  background: #e9f4e3;
+  border-color: #9db891;
+}
+
+.linxpos-payment-summary {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.75fr) minmax(360px, 1.25fr);
+  gap: 7px;
+  margin-top: auto;
+  padding-top: 8px;
+}
+
+.linxpos-sale-details,
+.linxpos-theme .totals-section {
+  padding: 8px;
+  background: #ece9d8;
+  border: 1px solid #aeb5bb;
+}
+
+.linxpos-sale-details {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 14px;
+}
+
+.linxpos-sale-details > strong {
+  grid-column: 1 / -1;
+  padding-bottom: 4px;
+  color: #4b5563;
+  border-bottom: 1px solid #c5c1b3;
+  text-align: center;
+}
+
+.linxpos-sale-details span {
+  display: contents;
+}
+
+.linxpos-sale-details b {
+  text-align: right;
+}
+
+.linxpos-theme .totals-row {
+  padding: 3px 4px;
+  font-size: 10px;
+}
+
+.linxpos-theme .totals-row.net-base {
+  border-radius: 0;
+}
+
+.linxpos-theme .totals-row.total {
+  margin-top: 4px;
+  padding-top: 7px;
+  color: #111827;
+  border-top: 2px solid #9aa4ad;
+  font-size: 15px;
+}
+
+.linxpos-theme .totals-row.total span:last-child {
+  font-size: 24px;
+}
+
+.linxpos-redeem-note {
+  margin-top: 7px;
+  padding: 5px 8px;
+  color: #7c4a03;
+  background: #fff7cf;
+  border: 1px solid #d9c98a;
+  font-size: 10px;
+  text-align: center;
+}
+
+.linxpos-theme .integration-notice,
+.linxpos-theme .orders-notice,
+.linxpos-theme .success-callout {
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.linxpos-theme .modal,
+.linxpos-theme .reward-picker-modal,
+.linxpos-theme .reward-confirm-modal {
+  padding: 14px;
+  background: #ece9d8;
+  border: 3px solid;
+  border-color: #ffffff #5e6a72 #5e6a72 #ffffff;
+  border-radius: 0;
+  box-shadow: 8px 8px 0 rgba(0, 0, 0, 0.22);
+}
+
+.linxpos-theme .reward-picker-header {
+  margin: -14px -14px 12px;
+  padding: 8px 10px;
+  color: white;
+  background: linear-gradient(90deg, #0a4f93, #5aa4d4);
+  border-radius: 0;
+}
+
+.linxpos-theme .reward-picker-grid {
+  gap: 7px;
+  padding: 8px 0 0;
+}
+
+.linxpos-theme .reward-picker-card,
+.linxpos-theme .reward-confirm-summary > div,
+.linxpos-theme .reward-confirm-cashback {
+  background: white;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.linxpos-theme .reward-picker-card:hover:not(:disabled),
+.linxpos-theme .reward-picker-card.selected {
+  background: #fff7cf;
+  border-color: #9e8b3e;
+  box-shadow: none;
+  transform: none;
+}
+
+.linxpos-theme .integration-inspector {
+  font-family: Tahoma, Arial, sans-serif;
+}
+
+@media (max-width: 1100px) {
+  .linxpos-workspace,
+  .linxpos-payment-workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .linxpos-sale-setup .linxpos-cart-area {
+    border-top: 1px solid #b7c2cc;
+  }
+
+  .linxpos-action-rail {
+    flex-direction: row;
+    border-top: 1px solid #0e4778;
+    border-left: 0;
+  }
+
+  .linxpos-action-button {
+    min-height: 66px;
+    flex: 1;
+  }
+
+  .linxpos-action-button > span {
+    min-height: 22px;
+    font-size: 20px;
+  }
+}
+
+@media (max-width: 760px) {
+  .linxpos-header {
+    grid-template-columns: 1fr auto;
+  }
+
+  .linxpos-screen-name {
+    display: none;
+  }
+
+  .linxpos-terminal-info span:last-child,
+  .linxpos-identification-bar span:last-child {
+    display: none;
+  }
+
+  .linxpos-identification-bar {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .linxpos-payment-columns,
+  .linxpos-payment-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .linxpos-theme .developer-toolbar-main {
+    grid-template-columns: 1fr;
+  }
+}

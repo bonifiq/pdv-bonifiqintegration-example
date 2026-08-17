@@ -1,5 +1,71 @@
 import { expect, test } from '@playwright/test'
 
+for (const path of ['/linxpos', '/linxpos/']) {
+  test(`rota ${path} abre a apresentação Linx e oculta o carrinho no pagamento`, async ({ page }) => {
+    await page.goto(path)
+    await expect(page.getByText('LINXPOS', { exact: true })).toBeVisible()
+    await expect(page.getByText('VENDAS', { exact: true })).toBeVisible()
+
+    await page.getByLabel('Cenário guiado').selectOption('no-rewards')
+    await page.getByRole('button', { name: 'OK' }).click()
+    await expect(page.getByTestId('linxpos-cart')).toBeVisible()
+    await page.getByRole('button', { name: 'Pagamento', exact: true }).click()
+
+    await expect(page.getByText('PAGAMENTOS', { exact: true })).toBeVisible()
+    await expect(page.getByTestId('linxpos-cart')).toHaveCount(0)
+    await expect(page.locator('.linxpos-payment-workspace .cart-items')).toHaveCount(0)
+    await expect(page.getByRole('heading', { name: 'Pagamento' })).toBeVisible()
+    await expect(page.getByText('Dinheiro', { exact: true })).toBeVisible()
+    await expect(page.getByText('BonifiQ', { exact: true })).toBeVisible()
+    await expect(page.getByText('Total líquido', { exact: true })).toBeVisible()
+  })
+}
+
+test('Linx POS estorna a recompensa ao voltar para editar a venda', async ({ page }) => {
+  await page.goto('/linxpos')
+  await page.getByLabel('Cenário guiado').selectOption('fixed-price-product')
+  await page.getByRole('button', { name: 'OK' }).click()
+  await page.getByRole('button', { name: 'Pagamento', exact: true }).click()
+  await page.getByRole('button', { name: /Escolher benefício/ }).click()
+  const rewardCard = page.locator('.reward-picker-card').filter({ hasText: 'Caneca' }).filter({ hasText: 'Preço final' })
+  await rewardCard.click()
+  await page.getByRole('button', { name: 'Confirmar e resgatar' }).click()
+  const token = await page.locator('.received-token strong').last().textContent()
+  await page.getByLabel('Código de validação').fill(token || '')
+  await page.getByRole('button', { name: 'Validar' }).click()
+
+  await expect(page.getByText('Benefício aplicado')).toBeVisible()
+  await expect(page.locator('.linxpos-payment-workspace .cart-items')).toHaveCount(0)
+  await page.getByRole('button', { name: 'Voltar', exact: true }).click()
+
+  await expect(page.getByText('VENDAS', { exact: true })).toBeVisible()
+  await expect(page.getByTestId('linxpos-cart')).toBeVisible()
+  await expect(page.locator('.cart-item-name').filter({ hasText: /^Caneca$/ })).toHaveCount(0)
+  await page.getByRole('button', { name: /Ver integração/ }).click()
+  await expect(page.locator('.trace-event').filter({ hasText: 'Estornar recompensa' })).toContainText(/DELETE \/POS\/rewards\//)
+})
+
+test('Linx POS finaliza a recompensa de produto com ExternalCode no pedido', async ({ page }) => {
+  await page.goto('/linxpos')
+  await page.getByLabel('Cenário guiado').selectOption('fixed-price-product')
+  await page.getByRole('button', { name: 'OK' }).click()
+  await page.getByRole('button', { name: 'Pagamento', exact: true }).click()
+  await page.getByRole('button', { name: /Escolher benefício/ }).click()
+  await page.locator('.reward-picker-card').filter({ hasText: 'Caneca' }).filter({ hasText: 'Preço final' }).click()
+  await page.getByRole('button', { name: 'Confirmar e resgatar' }).click()
+  const token = await page.locator('.received-token strong').last().textContent()
+  await page.getByLabel('Código de validação').fill(token || '')
+  await page.getByRole('button', { name: 'Validar' }).click()
+  await expect(page.getByText('Benefício aplicado')).toBeVisible()
+
+  await page.getByRole('button', { name: 'Finalizar', exact: true }).click()
+  await expect(page.getByText('Venda concluída!')).toBeVisible()
+  await page.getByRole('button', { name: /Ver integração/ }).click()
+  const orderTrace = page.locator('.trace-event').filter({ hasText: 'Registrar pedido' })
+  await orderTrace.locator('.trace-summary').click()
+  await expect(orderTrace.locator('pre').first()).toContainText(/"Coupon": "BNF-/)
+})
+
 test('brinde aparece no carrinho e é estornado ao voltar', async ({ page }) => {
   await page.goto('/')
   await page.getByLabel('Cenário guiado').selectOption('gift')

@@ -1,13 +1,16 @@
 import { useState } from 'react'
+import type { AppVariant } from './appVariant'
 import { getProductRewardDescription, isProductReward } from './bonifiq/rewardRules'
 import { DeveloperToolbar, IntegrationInspector, IntegrationNotice, BonifiQSection, RewardsSummaryModal, ValidationModal } from './components/bonifiq'
+import { LinxPosHeader, LinxPosSale } from './components/linx/LinxPosView'
 import { Header, StepIndicator, CustomerSelector, ProductsGrid, CartItems, CartTotals, PaymentSection, SuccessScreen, OrdersScreen } from './components/pdv'
 import { PRODUCTS } from './data/products'
 import { formatCents } from './pdv/money'
 import { useSaleFlow } from './pdv/useSaleFlow'
 
-function App() {
+function App({ variant = 'default' }: { variant?: AppVariant }) {
   const sale = useSaleFlow()
+  const isLinx = variant === 'linx'
   const [inspectorOpen, setInspectorOpen] = useState(false)
   const reward = sale.integration.selectedReward
   const discountLabel = !reward ? '' : reward.isCashback ? 'Cashback BonifiQ' : isProductReward(reward) ? `${getProductRewardDescription(reward)} BonifiQ` : 'Desconto BonifiQ'
@@ -15,14 +18,19 @@ function App() {
   const globalError = sale.integration.phase === 'error' && sale.integration.retryAction !== 'validation' ? sale.integration.error : null
   const rewardCancellationPending = sale.integration.retryAction === 'cancel-reward' || sale.integration.retryAction === 'remove-reward'
 
-  const shell = (content: React.ReactNode) => <>
-    <Header />
-    <div className="container">
-      <DeveloperToolbar activeScenario={sale.activeScenario} onScenarioChange={sale.applyScenario} onOpenInspector={() => setInspectorOpen(true)} />
-      {content}
-    </div>
-    <IntegrationInspector open={inspectorOpen} onClose={() => setInspectorOpen(false)} />
-  </>
+  const linxScreen = sale.showOrders ? 'PEDIDOS' : sale.orderResult ? 'VENDA CONCLUÍDA' : sale.currentStep === 1 ? 'VENDAS' : 'PAGAMENTOS'
+  const shell = (content: React.ReactNode) => {
+    const appContent = <>
+      {isLinx ? <LinxPosHeader screen={linxScreen} /> : <Header />}
+      <div className={isLinx ? 'container linxpos-container' : 'container'}>
+        <DeveloperToolbar activeScenario={sale.activeScenario} onScenarioChange={sale.applyScenario} onOpenInspector={() => setInspectorOpen(true)} />
+        {content}
+      </div>
+      <IntegrationInspector open={inspectorOpen} onClose={() => setInspectorOpen(false)} />
+    </>
+
+    return isLinx ? <div className="linxpos-theme">{appContent}</div> : appContent
+  }
 
   if (sale.showOrders) return shell(<OrdersScreen orders={sale.orders} onBack={sale.backToPdv} onNewSale={sale.newSale} onCancelOrder={sale.cancelOrder} onPartialCancel={sale.partialCancel} isProcessing={Boolean(sale.processingOrderId)} processingOrderId={sale.processingOrderId} notice={sale.orderNotice} />)
   if (sale.orderResult) {
@@ -31,6 +39,10 @@ function App() {
   }
 
   return shell(<>
+    {isLinx ? <>
+      {globalError && <IntegrationNotice message={globalError} canRetry={Boolean(sale.integration.retryAction)} canDismiss={!rewardCancellationPending} onRetry={() => void sale.retryIntegration()} onDismiss={sale.dismissIntegrationError} />}
+      <LinxPosSale sale={sale} discountLabel={discountLabel} />
+    </> : <>
     <div className="pdv-actions-bar"><button className="btn btn-secondary" onClick={sale.viewOrders}>Pedidos feitos ({sale.orders.length})</button></div>
     <StepIndicator currentStep={sale.currentStep} />
     {globalError && <IntegrationNotice message={globalError} canRetry={Boolean(sale.integration.retryAction)} canDismiss={!rewardCancellationPending} onRetry={() => void sale.retryIntegration()} onDismiss={sale.dismissIntegrationError} />}
@@ -58,6 +70,7 @@ function App() {
         <div className="cart-actions"><button className="btn btn-success" onClick={() => void sale.finalizeSale()} disabled={sale.isBusy || rewardCancellationPending || Boolean(sale.integration.selectedReward && !sale.integration.redeem)}>{sale.integration.phase === 'submitting-order' ? '⏳ Processando...' : '✅ Finalizar venda em dinheiro'}</button>{sale.integration.selectedReward && !sale.integration.redeem && <small className="cart-action-hint">Conclua ou cancele o resgate antes de finalizar.</small>}</div>
       </aside>
     </div>}
+    </>}
 
     {sale.showRewardsSummary && sale.customer && <RewardsSummaryModal rewardsSummary={sale.integration.rewards} isLoading={sale.integration.phase === 'loading-rewards'} error={sale.integration.retryAction === 'rewards' ? sale.integration.error : null} onConfirm={sale.closeRewardsSummary} />}
     {sale.validationOpen && sale.customer && <ValidationModal customer={sale.customer} phase={sale.integration.phase} challenge={sale.integration.challenge} error={validationError} onValidate={sale.validateCode} onCancel={sale.cancelPendingReward} />}
