@@ -76,6 +76,50 @@ describe('payloads enviados à API', () => {
     })
   })
 
+  it('envia loja, política comercial, vendedor e pagamento na consulta e no resgate', () => {
+    const saleContext = {
+      branch: { originalId: 'LOJA-002', name: 'Loja Outlet' },
+      tradePolicy: { originalId: 'OUTLET', name: 'Outlet' },
+      salesPerson: { originalId: 'V1', name: 'João' },
+      paymentMethods: [{ originalId: 'DINHEIRO', name: 'Dinheiro' }],
+    }
+    const expectedContext = {
+      Branch: { OriginalId: 'LOJA-002', Name: 'Loja Outlet' },
+      TradePolicy: { OriginalId: 'OUTLET', Name: 'Outlet' },
+      SalesPerson: { OriginalId: 'V1', Name: 'João' },
+      PaymentMethods: [{ OriginalId: 'DINHEIRO', Name: 'Dinheiro' }],
+    }
+
+    expect(buildAvailableRewardsBody({ customerId: '12345678900', purchaseValue: 100, discountValue: 0, products: [], ...saleContext }))
+      .toEqual({ CustomerId: '12345678900', PurchaseValue: 100, DiscountValue: 0, Products: [], ...expectedContext })
+    expect(buildRedeemBody({ rewardId: 7, customerId: '12345678900', originalKey: 'KEY-3', value: 10, ...saleContext }))
+      .toEqual({ CustomerId: '12345678900', Value: 10, OriginalKey: 'KEY-3', RedeemOrigin: 5, ...expectedContext })
+  })
+
+  it('omite o contexto da venda quando ele não é informado ou está vazio', () => {
+    expect(buildRedeemBody({ rewardId: 7, customerId: '12345678900', originalKey: 'KEY-4', branch: null, tradePolicy: undefined, paymentMethods: [] }))
+      .toEqual({ CustomerId: '12345678900', OriginalKey: 'KEY-4', RedeemOrigin: 5 })
+  })
+
+  it('envia a política comercial no pedido quando informada', () => {
+    const body = buildOrderBody({
+      originalId: 'ORDER-2',
+      orderPlacementDate: '2026-07-21T00:00:00.000Z',
+      orderCompletedDate: '2026-07-21T00:00:00.000Z',
+      orderStatus: 'Concluído',
+      isCancelledOrReturned: false,
+      isCompleted: true,
+      orderTotal: 10,
+      customer: { originalId: '12345678900', name: 'Maria', isEnrolled: true },
+      products: [],
+      paymentMethods: [{ originalId: 'DINHEIRO', name: 'Dinheiro', paidAmount: 10 }],
+      branch: { originalId: 'LOJA-002', name: 'Loja Outlet' },
+      tradePolicy: { originalId: 'OUTLET', name: 'Outlet' },
+      salesPerson: { originalId: 'V1', name: 'João' },
+    })
+    expect(body.TradePolicy).toEqual({ OriginalId: 'OUTLET', Name: 'Outlet' })
+  })
+
   it('projeta o pedido sem campos exclusivos da resposta ou do carrinho', () => {
     const request = {
       originalId: 'ORDER-1',

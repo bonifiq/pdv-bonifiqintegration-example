@@ -52,6 +52,23 @@ Resposta relevante:
 
 `PurchaseValue` é o total bruto e `DiscountValue` leva descontos próprios do PDV separadamente. `Products` participa das regras de cashback e itens restritos, mas não determina a disponibilidade offline de `RewardType=5`. No exemplo, a venda possui somente `P002`, porém a recompensa `P009` continua utilizável porque será adicionada como uma nova linha. O redeem POS desta versão sempre confirma exatamente uma unidade.
 
+## Contexto da venda
+
+O PDV envia a mesma loja (`Branch`), política comercial (`TradePolicy`), vendedor (`SalesPerson`) e forma de pagamento (`PaymentMethods`) na consulta, no resgate e no pedido:
+
+```json
+{
+  "Branch": { "OriginalId": "LOJA-002", "Name": "Loja Outlet" },
+  "TradePolicy": { "OriginalId": "OUTLET", "Name": "Outlet" },
+  "SalesPerson": { "OriginalId": "VENDEDOR-001", "Name": "João Silva" },
+  "PaymentMethods": [{ "OriginalId": "DINHEIRO", "Name": "Dinheiro" }]
+}
+```
+
+No pedido, esses campos alimentam as regras de pontos extras por loja, política comercial e forma de pagamento. Na consulta e no resgate eles ainda não alteram o resultado: ficam reservados para regras de resgate por loja ou política comercial. `PaidAmount` só é enviado no pedido, quando o valor pago é conhecido.
+
+O seletor no cabeçalho do PDV troca entre `Loja Centro · Full price` e `Loja Outlet · Outlet` e consulta os benefícios novamente.
+
 ## Cliente TypeScript
 
 Toda operação usa a mesma interface:
@@ -167,7 +184,10 @@ O POS não recebe `ProductDiscountTotal`: esse campo pertence somente ao fluxo d
     "OriginalId": "DINHEIRO",
     "Name": "Dinheiro",
     "PaidAmount": 119.90
-  }]
+  }],
+  "Branch": { "OriginalId": "LOJA-002", "Name": "Loja Outlet" },
+  "TradePolicy": { "OriginalId": "OUTLET", "Name": "Outlet" },
+  "SalesPerson": { "OriginalId": "VENDEDOR-001", "Name": "João Silva" }
 }
 ```
 

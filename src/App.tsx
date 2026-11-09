@@ -21,7 +21,7 @@ function App({ variant = 'default' }: { variant?: AppVariant }) {
   const linxScreen = sale.showOrders ? 'PEDIDOS' : sale.orderResult ? 'VENDA CONCLUÍDA' : sale.currentStep === 1 ? 'VENDAS' : 'PAGAMENTOS'
   const shell = (content: React.ReactNode) => {
     const appContent = <>
-      {isLinx ? <LinxPosHeader screen={linxScreen} /> : <Header />}
+      {isLinx ? <LinxPosHeader screen={linxScreen} /> : <Header storeId={sale.storeId} onStoreChange={sale.changeStore} disabled={sale.isBusy || Boolean(sale.integration.redeem)} />}
       <div className={isLinx ? 'container linxpos-container' : 'container'}>
         <DeveloperToolbar activeScenario={sale.activeScenario} onScenarioChange={sale.applyScenario} onOpenInspector={() => setInspectorOpen(true)} />
         {content}

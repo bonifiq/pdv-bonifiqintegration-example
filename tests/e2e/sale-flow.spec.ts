@@ -186,6 +186,27 @@ test('cenário sem OTP resgata e registra pedido com trace', async ({ page }) =>
   await expect(requestBody).toContainText('98765432100')
 })
 
+test('troca de loja reconsulta benefícios com loja e política comercial', async ({ page }) => {
+  await page.goto('/')
+  await page.getByLabel('Cenário guiado').selectOption('standard')
+  await page.getByRole('button', { name: 'OK' }).click()
+
+  await page.getByRole('button', { name: /Ver integração/ }).click()
+  await page.getByLabel('Linha do tempo da integração').getByRole('button', { name: 'Limpar' }).click()
+  await page.getByLabel('Fechar inspetor').click()
+
+  await page.getByLabel('Loja').selectOption('outlet')
+  await page.getByRole('button', { name: /Ver integração/ }).click()
+  const trace = page.locator('.trace-event').filter({ hasText: 'Consultar benefícios' })
+  await expect(trace).toHaveCount(1)
+  await trace.locator('.trace-summary').click()
+  await expect(trace.locator('.trace-reason')).toContainText('Loja alterada; consultar os benefícios com a nova loja e política comercial.')
+  const requestBody = trace.locator('pre').first()
+  await expect(requestBody).toContainText('"TradePolicy"')
+  await expect(requestBody).toContainText('"OUTLET"')
+  await expect(requestBody).toContainText('"LOJA-002"')
+})
+
 test('consulta benefícios com valor bruto, desconto separado e casing do contrato', async ({ page }) => {
   await page.goto('/')
   await page.getByLabel('Cenário guiado').selectOption('standard')

@@ -11,6 +11,7 @@ import { PRODUCTS } from '../data/products'
 import { clampCents, fromCents, toCents } from './money'
 import { allocateOrderProductTotals } from './orderProducts'
 import { allocatePartialRefundProducts } from './partialCancellation'
+import { cashPayment, DEFAULT_STORE_ID, findStore, PDV_SALES_PERSON } from './saleContext'
 import type { CartItem, CatalogProduct, MoneyCents, Notice, OrderRecord, PdvCustomer } from './types'
 
 const makeOperationId = (prefix: string): string => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
@@ -20,6 +21,7 @@ const rewardsRefreshReason = {
   selectedCustomer: 'Cliente selecionado; consultar saldo, tier e benefícios para a venda.',
   changedCart: 'Carrinho alterado; revalidar elegibilidade e benefícios.',
   changedDiscount: 'Desconto manual alterado; revalidar elegibilidade e limites.',
+  changedStore: 'Loja alterada; consultar os benefícios com a nova loja e política comercial.',
   loadedScenario: 'Cenário carregado; consultar benefícios para o cliente e carrinho definidos.',
   cancelledReward: 'Recompensa estornada; atualizar os benefícios disponíveis para a venda.',
   returnedToEdit: 'Operador voltou para a edição; atualizar os benefícios sem o desconto do pagamento.',
@@ -39,7 +41,15 @@ export function useSaleFlow() {
   const [orderNotice, setOrderNotice] = useState<Notice | null>(null)
   const [processingOrderId, setProcessingOrderId] = useState<string | null>(null)
   const [activeScenario, setScenarioState] = useState<DemoScenarioId | null>(null)
+  const [storeId, setStoreId] = useState<string>(DEFAULT_STORE_ID)
   const rewardsRequestId = useRef(0)
+  const store = findStore(storeId)
+  const saleContext = useMemo(() => ({
+    branch: store.branch,
+    tradePolicy: store.tradePolicy,
+    salesPerson: PDV_SALES_PERSON,
+    paymentMethods: [cashPayment()],
+  }), [store])
   const nextRewardsRefreshReason = useRef<string>(rewardsRefreshReason.changedSale)
 
   const subtotalCents = useMemo(() => cartItems.reduce((total, item) => total + item.priceCents * item.quantity, 0), [cartItems])
@@ -69,6 +79,7 @@ export function useSaleFlow() {
         productBrand: item.brand || null,
         productCategory: item.category || null,
       })),
+      ...saleContext,
     }, { reason })
     if (requestId !== rewardsRequestId.current) return
     if (!result.ok) {
@@ -76,7 +87,7 @@ export function useSaleFlow() {
       return
     }
     dispatchIntegration({ type: 'REWARDS_LOADED', rewards: result.data })
-  }, [appliedManualDiscountCents, cartItems, customer, integration.redeem, subtotalCents])
+  }, [appliedManualDiscountCents, cartItems, customer, integration.redeem, saleContext, subtotalCents])
 
   const cartSignature = cartItems.map(item => `${item.id}:${item.quantity}:${item.priceCents}`).join('|')
   useEffect(() => {
@@ -148,6 +159,13 @@ export function useSaleFlow() {
     resetReward()
   }
 
+  const changeStore = (nextStoreId: string): void => {
+    if (nextStoreId === storeId || integration.redeem) return
+    nextRewardsRefreshReason.current = rewardsRefreshReason.changedStore
+    setStoreId(nextStoreId)
+    resetReward()
+  }
+
   const findCatalogProduct = (externalProductId?: string | null): CatalogProduct | undefined => PRODUCTS.find(product => (
     product.id.toLowerCase() === String(externalProductId || '').toLowerCase()
   ))
@@ -188,6 +206,7 @@ export function useSaleFlow() {
       customerId: customer!.document,
       originalKey,
       value: reward.isCashback ? fromCents(cashbackCents) : null,
+      ...saleContext,
     }, { reason })
 
     if (!result.ok) {
@@ -233,7 +252,7 @@ export function useSaleFlow() {
       setCartItems(previous => [...previous, buildRewardCartItem(reward, result.data, catalogProduct!)])
     }
     dispatchIntegration({ type: 'REWARD_APPLIED', redeem: result.data })
-  }, [customer])
+  }, [customer, saleContext])
 
   const createChallenge = useCallback(async (reward: AvailableReward, cashbackCents: MoneyCents, transactionId: string, originalKey: string, reason: string) => {
     dispatchIntegration({ type: 'CHALLENGE_SENDING' })
@@ -382,9 +401,10 @@ export function useSaleFlow() {
         productBrand: item.brand || null,
         productCategory: item.category || null,
       })),
-      paymentMethods: [{ originalId: 'DINHEIRO', name: 'Dinheiro', paidAmount: fromCents(totalCents) }],
-      branch: { originalId: 'LOJA-001', name: 'Loja Centro' },
-      salesPerson: { originalId: 'VENDEDOR-001', name: 'João Silva' },
+      paymentMethods: [cashPayment(fromCents(totalCents))],
+      branch: saleContext.branch,
+      tradePolicy: saleContext.tradePolicy,
+      salesPerson: saleContext.salesPerson,
     }
     const orderReason = isRetry
       ? 'O registro do pedido falhou; enviar novamente a venda concluída para a BonifiQ.'
@@ -411,7 +431,7 @@ export function useSaleFlow() {
     }
     setOrders(previous => [record, ...previous])
     setOrderResult(result.data)
-  }, [appliedManualDiscountCents, bonifiqDiscountCents, cartItems, customer, integration.customerValidated, integration.redeem, integration.rewards?.customer, integration.rewards?.shouldValidateCustomerSignup, integration.selectedReward, subtotalCents, totalCents])
+  }, [appliedManualDiscountCents, bonifiqDiscountCents, cartItems, customer, integration.customerValidated, integration.redeem, integration.rewards?.customer, integration.rewards?.shouldValidateCustomerSignup, integration.selectedReward, saleContext, subtotalCents, totalCents])
 
   const retryIntegration = async (): Promise<void> => {
     if (integration.retryAction === 'rewards') return loadRewards(rewardsRefreshReason.retry)
@@ -524,7 +544,7 @@ export function useSaleFlow() {
   return {
     currentStep, customer, cartItems, subtotalCents, appliedManualDiscountCents, bonifiqBaseCents, bonifiqDiscountCents, totalCents,
     integration, showRewardsSummary, orderResult, orders, showOrders, orderNotice, processingOrderId, activeScenario,
-    isBusy, validationOpen,
+    isBusy, validationOpen, storeId, changeStore,
     selectCustomer, addProduct, removeItem, updateQuantity, clearCart, changeManualDiscount,
     continueToPayment: () => customer && cartItems.length > 0 && setCurrentStep(2),
     backToSelection, removeReward, confirmReward, validateCode, cancelPendingReward, finalizeSale,
