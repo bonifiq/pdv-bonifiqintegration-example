@@ -2,11 +2,14 @@ import type {
   AvailableRewardsRequest,
   ChallengeRequest,
   ChallengeValidationRequest,
+  NamedReferenceInput,
+  OrderPaymentMethodInput,
   OrderRequest,
   PartialCancelRequest,
   ProductBrandInput,
   ProductCategoryInput,
   RedeemRequest,
+  SaleContextInput,
 } from './types'
 
 export const REDEEM_ORIGIN_PDV = 5
@@ -27,9 +30,27 @@ const compact = (value: Record<string, unknown>): Record<string, unknown> => Obj
   Object.entries(value).filter(([, item]) => item !== undefined && item !== null),
 )
 
-const buildBrand = (brand?: ProductBrandInput | null): Record<string, unknown> | undefined => brand
-  ? compact({ OriginalId: brand.originalId, Name: brand.name })
+const buildNamedReference = (reference?: NamedReferenceInput | null): Record<string, unknown> | undefined => reference
+  ? compact({ OriginalId: reference.originalId, Name: reference.name })
   : undefined
+
+const buildBrand = (brand?: ProductBrandInput | null): Record<string, unknown> | undefined => buildNamedReference(brand)
+
+const buildPaymentMethods = (paymentMethods?: OrderPaymentMethodInput[] | null): Record<string, unknown>[] | undefined => paymentMethods
+  ? paymentMethods.map(paymentMethod => compact({
+      OriginalId: paymentMethod.originalId,
+      Name: paymentMethod.name,
+      PaidAmount: paymentMethod.paidAmount,
+    }))
+  : undefined
+
+/** Loja, política comercial, vendedor e pagamento no mesmo formato do pedido. Campos ausentes não são enviados. */
+const buildSaleContext = (context: SaleContextInput): Record<string, unknown> => compact({
+  Branch: buildNamedReference(context.branch),
+  TradePolicy: buildNamedReference(context.tradePolicy),
+  SalesPerson: buildNamedReference(context.salesPerson),
+  PaymentMethods: context.paymentMethods?.length ? buildPaymentMethods(context.paymentMethods) : undefined,
+})
 
 const buildAvailableCategory = (category?: ProductCategoryInput | null): Record<string, unknown> | undefined => category
   ? compact({
@@ -63,6 +84,7 @@ export const buildAvailableRewardsBody = (request: AvailableRewardsRequest): Rec
     ProductBrand: buildBrand(product.productBrand),
     ProductCategory: buildAvailableCategory(product.productCategory),
   })),
+  ...buildSaleContext(request),
 })
 
 export const buildChallengeBody = (request: ChallengeRequest): Record<string, unknown> => ({
@@ -83,6 +105,7 @@ export const buildRedeemBody = (request: RedeemRequest): Record<string, unknown>
   ...(request.value !== null && request.value !== undefined ? { Value: request.value } : {}),
   OriginalKey: request.originalKey,
   RedeemOrigin: REDEEM_ORIGIN_PDV,
+  ...buildSaleContext(request),
 })
 
 export const buildOrderBody = (request: OrderRequest): Record<string, unknown> => compact({
@@ -115,13 +138,10 @@ export const buildOrderBody = (request: OrderRequest): Record<string, unknown> =
     ProductBrand: buildBrand(product.productBrand),
     ProductCategory: buildOrderCategory(product.productCategory),
   })),
-  PaymentMethods: request.paymentMethods.map(paymentMethod => compact({
-    OriginalId: paymentMethod.originalId,
-    Name: paymentMethod.name,
-    PaidAmount: paymentMethod.paidAmount,
-  })),
-  Branch: compact({ OriginalId: request.branch.originalId, Name: request.branch.name }),
-  SalesPerson: compact({ OriginalId: request.salesPerson.originalId, Name: request.salesPerson.name }),
+  PaymentMethods: buildPaymentMethods(request.paymentMethods),
+  Branch: buildNamedReference(request.branch),
+  TradePolicy: buildNamedReference(request.tradePolicy),
+  SalesPerson: buildNamedReference(request.salesPerson),
 })
 
 export const buildCancelOrderBody = (cancelledDate: string, orderStatus: string): Record<string, unknown> => ({

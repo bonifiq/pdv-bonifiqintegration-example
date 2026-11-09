@@ -92,7 +92,23 @@ export interface AvailableReward {
   productAvailableQuantity?: number | null
 }
 
-export interface AvailableRewardsRequest {
+export interface NamedReferenceInput {
+  originalId: string
+  name: string
+}
+
+/**
+ * Contexto da venda enviado com o mesmo formato na consulta, no resgate e no pedido.
+ * No pedido ele alimenta as regras de pontos extras; na consulta e no resgate fica reservado para regras de resgate.
+ */
+export interface SaleContextInput {
+  branch?: NamedReferenceInput | null
+  tradePolicy?: NamedReferenceInput | null
+  salesPerson?: NamedReferenceInput | null
+  paymentMethods?: OrderPaymentMethodInput[] | null
+}
+
+export interface AvailableRewardsRequest extends SaleContextInput {
   customerId: string
   purchaseValue: number
   discountValue: number
@@ -149,7 +165,7 @@ export interface ChallengeValidationRequest {
   code: string
 }
 
-export interface RedeemRequest {
+export interface RedeemRequest extends SaleContextInput {
   rewardId: number
   customerId: string
   originalKey: string
@@ -210,8 +226,9 @@ export interface OrderRequest {
   customer: OrderCustomerInput
   products: OrderProductInput[]
   paymentMethods: OrderPaymentMethodInput[]
-  branch: { originalId: string; name: string }
-  salesPerson: { originalId: string; name: string }
+  branch: NamedReferenceInput
+  tradePolicy?: NamedReferenceInput | null
+  salesPerson: NamedReferenceInput
 }
 
 export interface OrderResponse {

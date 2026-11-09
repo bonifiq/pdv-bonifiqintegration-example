@@ -471,9 +471,26 @@ body {
 
 .header-info {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 16px;
   font-size: 14px;
   color: #6b7280;
+}
+
+.header-store {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.header-store select {
+  font: inherit;
+  color: #1f2937;
+  padding: 4px 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #fff;
 }
 
 /* Products Grid */
