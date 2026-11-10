@@ -96,7 +96,7 @@ describe('fronteira HTTP', () => {
       { Success: true, TransactionId: 'T1', FriendlyErrorMessage: null },
       { Result: { RewardId: 11, ExternalCode: 'EXT-2', OriginalKey: 'K2', ExternalProductId: 'P1', Point: { PointId: 21, Quantity: -100, Metadatas: [{ Name: 'origin', Value: 'pdv' }] } } },
       { Result: { Id: 10, Customer: { OriginalId: '123' }, ExternalCode: 'EXT-1', CashValue: null, IsCanceled: true, RedeemDate: '2026-07-21T00:00:00.000Z', Points: { Id: 30, Points: 100, Type: 1, EventKey: 'K1' } } },
-      { Result: { Id: 40, OriginalId: 'O1', OrderTotal: 90, Coupon: 'EXT-2', EstimatedBonus: { GenerateBonus: true, EstimatedPoints: 90, EstimatedCashback: 4.5, EstimatedCashbackFormatted: 'R$ 4,50' } } },
+      { Result: { Id: 40, OriginalId: 'O1', OrderTotal: 90, Coupon: 'EXT-2', EstimatedBonus: { GenerateBonus: true, EstimatedPoints: 90, EstimatedCashback: 4.5, EstimatedCashbackFormatted: 'R$ 4,50', DaysToAvailable: 7, EstimatedAvailableDate: '2026-07-28T00:00:00Z', ExpirationDays: null, EstimatedExpirationDate: null } } },
       { Result: { isCanceled: true, UpdatedAt: '2026-07-21T00:00:00.000Z', Status: 3, RefundErrorDetails: null } },
       { Result: { isCanceled: false, UpdatedAt: '2026-07-21T00:00:01.000Z', Status: 2, RefundErrorDetails: { Code: 'VALUE_MISMATCH', Message: 'Valores diferentes', Field: 'ValueToRefund', ExpectedValue: 10, ActualValue: 9 } } },
     ]
@@ -124,7 +124,7 @@ describe('fronteira HTTP', () => {
     expect(productRedeem.ok && productRedeem.data).toMatchObject({ rewardId: 11, externalProductId: 'P1', point: { pointId: 21, quantity: -100, metadatas: [{ name: 'origin', value: 'pdv' }] } })
     if (productRedeem.ok) expect(productRedeem.data).not.toHaveProperty('productDiscountTotal')
     expect(rewardCancel.ok && rewardCancel.data).toMatchObject({ id: 10, isCanceled: true, points: { id: 30, eventKey: 'K1' } })
-    expect(order.ok && order.data).toMatchObject({ id: 40, originalId: 'O1', estimatedBonus: { generateBonus: true, estimatedPoints: 90, estimatedCashback: 4.5 } })
+    expect(order.ok && order.data).toMatchObject({ id: 40, originalId: 'O1', estimatedBonus: { generateBonus: true, estimatedPoints: 90, estimatedCashback: 4.5, daysToAvailable: 7, estimatedAvailableDate: '2026-07-28T00:00:00Z', expirationDays: null, estimatedExpirationDate: null } })
     if (order.ok) expect(order.data).not.toHaveProperty('pointsEarned')
     expect(orderCancel.ok && orderCancel.data).toMatchObject({ isCanceled: true, status: 3, refundErrorDetails: null })
     expect(!partialCancel.ok && partialCancel.error).toMatchObject({ code: 'VALUE_MISMATCH', friendlyMessage: 'Valores diferentes' })

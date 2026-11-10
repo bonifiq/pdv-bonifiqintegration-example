@@ -225,6 +225,10 @@ export function mapOrderResponse(value: unknown): OrderResponse {
       estimatedPoints: Number(estimatedBonus.estimatedPoints || 0),
       estimatedCashback: Number(estimatedBonus.estimatedCashback || 0),
       estimatedCashbackFormatted: String(estimatedBonus.estimatedCashbackFormatted || ''),
+      daysToAvailable: estimatedBonus.daysToAvailable === undefined || estimatedBonus.daysToAvailable === null ? undefined : Number(estimatedBonus.daysToAvailable),
+      estimatedAvailableDate: estimatedBonus.estimatedAvailableDate === undefined ? undefined : optionalString(estimatedBonus.estimatedAvailableDate),
+      expirationDays: estimatedBonus.expirationDays === undefined ? undefined : estimatedBonus.expirationDays === null ? null : Number(estimatedBonus.expirationDays),
+      estimatedExpirationDate: estimatedBonus.estimatedExpirationDate === undefined ? undefined : optionalString(estimatedBonus.estimatedExpirationDate),
     } : undefined,
   }
 }
