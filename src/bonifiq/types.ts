@@ -256,6 +256,14 @@ export interface OrderResponse {
     estimatedPoints: number
     estimatedCashback: number
     estimatedCashbackFormatted: string
+    /** Prazo de concessão em dias (0 = logo após concluir o pedido). Ausente em versões antigas da API. */
+    daysToAvailable?: number
+    /** Data (UTC) a partir da qual os pontos podem ser usados; null enquanto o pedido não está concluído. */
+    estimatedAvailableDate?: string | null
+    /** Validade dos pontos em dias; null quando os pontos não expiram. */
+    expirationDays?: number | null
+    /** Data (UTC) de expiração dos pontos, contada a partir da concessão. */
+    estimatedExpirationDate?: string | null
   }
 }
 

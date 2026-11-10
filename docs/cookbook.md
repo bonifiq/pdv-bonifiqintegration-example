@@ -200,13 +200,20 @@ A resposta do pedido traz `EstimatedBonus`, que o PDV mostra na tela de venda co
   "GenerateBonus": true,
   "EstimatedPoints": 45,
   "EstimatedCashback": 4,
-  "EstimatedCashbackFormatted": "R$ 4,00"
+  "EstimatedCashbackFormatted": "R$ 4,00",
+  "DaysToAvailable": 7,
+  "EstimatedAvailableDate": "2026-11-17T19:13:45Z",
+  "ExpirationDays": 365,
+  "EstimatedExpirationDate": "2027-11-18T02:59:59Z"
 }
 ```
 
 - É uma estimativa calculada quando o pedido é salvo; o bônus creditado de fato pode mudar (regras alteradas, cancelamento, liberação pendente). Por isso a tela diz "estimados".
 - `GenerateBonus: false` significa que não há bônus previsto **ou** que a estimativa falhou; nos dois casos o pedido foi salvo (200). O PDV só exibe as linhas de bônus quando `GenerateBonus` é `true`.
 - `EstimatedCashback` são os pontos convertidos pelo cashback ativo da loja e, por padrão, arredondados para baixo em reais inteiros, igual ao saldo (45 pts × R$ 0,10 = R$ 4,50 → R$ 4,00). A linha de cashback só aparece quando o valor é maior que zero.
+- **Prazo de concessão:** `DaysToAvailable` é quantos dias após a conclusão do pedido os pontos ficam disponíveis (prazo da loja para o canal PDV ou de regra avançada; `0` = logo após a venda). `EstimatedAvailableDate` é `OrderCompletedDate` + prazo, e vem `null` se o pedido ainda não foi concluído.
+- **Validade:** `ExpirationDays` é a validade dos pontos em dias, contada a partir da concessão; `null` quando os pontos da loja não expiram. `EstimatedExpirationDate` é a data de expiração (fim do dia no horário de Brasília, em UTC).
+- As datas vêm em UTC; o PDV exibe no fuso de Brasília ("Disponível para uso: em 7 dias (17/11/2026)", "Validade dos pontos: até 17/11/2027 (365 dias)"). Versões da API sem esses campos simplesmente não exibem as linhas.
 - Use `EstimatedCashbackFormatted` apenas para exibir; para cálculos, use `EstimatedCashback`.
 
 ## Cancelamento parcial

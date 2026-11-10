@@ -170,6 +170,11 @@ export function createMockBonifiqClient(): BonifiqClient {
       // Mesma regra padrão da API: cashback dos pontos estimados arredondado para baixo em reais inteiros.
       const estimatedPoints = Math.floor(request.orderTotal)
       const estimatedCashback = Math.floor(estimatedPoints * 0.1)
+      // Mock: concessão em 7 dias e validade de 365 dias contada da concessão.
+      const daysToAvailable = 7
+      const expirationDays = 365
+      const availableDate = new Date(Date.parse(request.orderCompletedDate || new Date().toISOString()) + daysToAvailable * 86_400_000)
+      const expirationDate = new Date(availableDate.getTime() + expirationDays * 86_400_000)
       return success({
         originalId: request.originalId,
         orderTotal: request.orderTotal,
@@ -179,6 +184,10 @@ export function createMockBonifiqClient(): BonifiqClient {
           estimatedPoints,
           estimatedCashback,
           estimatedCashbackFormatted: estimatedCashback.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
+          daysToAvailable,
+          estimatedAvailableDate: request.isCompleted ? availableDate.toISOString() : null,
+          expirationDays,
+          estimatedExpirationDate: request.isCompleted ? expirationDate.toISOString() : null,
         },
       })
     },

@@ -14,6 +14,20 @@ interface Props {
   notice: Notice | null
 }
 
+// Datas da API vêm em UTC; a BonifiQ fecha o dia no horário de Brasília.
+const formatDate = (value: string) => new Date(value).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })
+const plural = (days: number) => `${days} ${days === 1 ? 'dia' : 'dias'}`
+
+export function formatAvailability(daysToAvailable: number, availableDate?: string | null): string {
+  if (daysToAvailable <= 0) return 'Logo após a venda'
+  return availableDate ? `Em ${plural(daysToAvailable)} (${formatDate(availableDate)})` : `${plural(daysToAvailable)} após a conclusão`
+}
+
+export function formatExpiration(expirationDays: number | null, expirationDate?: string | null): string {
+  if (expirationDays === null) return 'Não expiram'
+  return expirationDate ? `Até ${formatDate(expirationDate)} (${plural(expirationDays)})` : `${plural(expirationDays)} após a concessão`
+}
+
 export function SuccessScreen({ order, orderResult, onNewSale, onViewOrders, onCancelOrder, onPartialCancel, isProcessing, processingOrderId, notice }: Props) {
   const orderTotal = Number(orderResult.orderTotal || 0)
   const bonus = orderResult.estimatedBonus
@@ -31,6 +45,8 @@ export function SuccessScreen({ order, orderResult, onNewSale, onViewOrders, onC
         {Boolean(orderResult.coupon) && <div className="success-details-row"><span>Cupom utilizado</span><span>{String(orderResult.coupon)}</span></div>}
         {showEstimatedBonus && <div className="success-details-row points-earned"><span>🎉 Pontos estimados nesta venda</span><span>+{bonus.estimatedPoints} pontos</span></div>}
         {showEstimatedBonus && bonus.estimatedCashback > 0 && <div className="success-details-row points-earned cashback-earned"><span>Cashback estimado nesta venda</span><span>{bonus.estimatedCashbackFormatted}</span></div>}
+        {showEstimatedBonus && bonus.daysToAvailable !== undefined && <div className="success-details-row bonus-available"><span>Disponível para uso</span><span>{formatAvailability(bonus.daysToAvailable, bonus.estimatedAvailableDate)}</span></div>}
+        {showEstimatedBonus && bonus.expirationDays !== undefined && <div className="success-details-row bonus-expiration"><span>Validade dos pontos</span><span>{formatExpiration(bonus.expirationDays, bonus.estimatedExpirationDate)}</span></div>}
       </div>
       <button className="btn btn-primary" onClick={onNewSale} style={{ width: '100%' }}>Iniciar nova venda</button>
       <button className="btn btn-secondary" onClick={onViewOrders} style={{ width: '100%', marginTop: 12 }}>Ver pedidos feitos</button>

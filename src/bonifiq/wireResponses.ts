@@ -142,6 +142,10 @@ export const buildOrderResponse = (response: OrderResponse): Record<string, unkn
     EstimatedPoints: response.estimatedBonus.estimatedPoints,
     EstimatedCashback: response.estimatedBonus.estimatedCashback,
     EstimatedCashbackFormatted: response.estimatedBonus.estimatedCashbackFormatted,
+    DaysToAvailable: response.estimatedBonus.daysToAvailable,
+    EstimatedAvailableDate: response.estimatedBonus.estimatedAvailableDate,
+    ExpirationDays: response.estimatedBonus.expirationDays,
+    EstimatedExpirationDate: response.estimatedBonus.estimatedExpirationDate,
   }) : undefined,
 })
 
