@@ -172,8 +172,8 @@ test('cenário sem OTP resgata e registra pedido com trace', async ({ page }) =>
   await expect(page.getByText('Benefício aplicado')).toBeVisible()
   await page.getByRole('button', { name: /Finalizar venda em dinheiro/ }).click()
   await expect(page.getByText('Venda concluída!')).toBeVisible()
-  await expect(page.getByText('Cashback ganho nesta venda')).toBeVisible()
-  await expect(page.locator('.cashback-earned')).toContainText(/R\$\s*11,99/)
+  await expect(page.getByText('Cashback estimado nesta venda')).toBeVisible()
+  await expect(page.locator('.cashback-earned')).toContainText(/R\$\s*11,00/)
   await expect(page.getByText(/Nova venda em/)).toHaveCount(0)
   await page.getByRole('button', { name: /Ver integração/ }).click()
   await expect(page.getByText('POST /POS/orders', { exact: true })).toBeVisible()
@@ -258,7 +258,7 @@ test('cancelamento parcial envia produtos e valor com o casing do contrato', asy
   await page.getByRole('button', { name: 'Cancelar itens selecionados' }).click()
   await expect(page.getByText('Cancelamento parcial enviado para a BonifiQ.')).toBeVisible()
   await expect(page.getByText('Parcialmente cancelado')).toBeVisible()
-  await expect(page.getByText('Cashback ganho nesta venda')).toHaveCount(0)
+  await expect(page.getByText('Cashback estimado nesta venda')).toHaveCount(0)
 
   await page.getByRole('button', { name: /Ver integração/ }).click()
   const trace = page.locator('.trace-event').filter({ hasText: 'Cancelar parcialmente' })
@@ -283,6 +283,6 @@ test('confirmação permite cancelar o pedido inteiro', async ({ page }) => {
 
   await expect(page.getByRole('heading', { name: 'Pedido cancelado' })).toBeVisible()
   await expect(page.getByText('Cancelamento enviado para a BonifiQ.')).toBeVisible()
-  await expect(page.getByText('Cashback ganho nesta venda')).toHaveCount(0)
+  await expect(page.getByText('Cashback estimado nesta venda')).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Cancelar pedido inteiro' })).toBeDisabled()
 })

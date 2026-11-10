@@ -29,8 +29,8 @@ export function SuccessScreen({ order, orderResult, onNewSale, onViewOrders, onC
       <div className="success-details">
         <div className="success-details-row"><span>Valor pago</span><span>{orderTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span></div>
         {Boolean(orderResult.coupon) && <div className="success-details-row"><span>Cupom utilizado</span><span>{String(orderResult.coupon)}</span></div>}
-        {showEstimatedBonus && <div className="success-details-row points-earned"><span>🎉 Pontos ganhos nesta venda</span><span>+{bonus.estimatedPoints} pontos</span></div>}
-        {showEstimatedBonus && bonus.estimatedCashback > 0 && <div className="success-details-row points-earned cashback-earned"><span>Cashback ganho nesta venda</span><span>{bonus.estimatedCashbackFormatted}</span></div>}
+        {showEstimatedBonus && <div className="success-details-row points-earned"><span>🎉 Pontos estimados nesta venda</span><span>+{bonus.estimatedPoints} pontos</span></div>}
+        {showEstimatedBonus && bonus.estimatedCashback > 0 && <div className="success-details-row points-earned cashback-earned"><span>Cashback estimado nesta venda</span><span>{bonus.estimatedCashbackFormatted}</span></div>}
       </div>
       <button className="btn btn-primary" onClick={onNewSale} style={{ width: '100%' }}>Iniciar nova venda</button>
       <button className="btn btn-secondary" onClick={onViewOrders} style={{ width: '100%', marginTop: 12 }}>Ver pedidos feitos</button>

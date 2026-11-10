@@ -193,6 +193,22 @@ O POS não recebe `ProductDiscountTotal`: esse campo pertence somente ao fluxo d
 
 `OrderTotal` é o valor líquido e `Coupon` recebe o `ExternalCode` escalar do resgate. O `Customer` do pedido é um DTO de criação: campos retornados pela consulta, como `Id` e `CurrentTier`, não devem ser reenviados. Em `Products`, use somente os campos aceitos por `CreateProductRequest`; quantidade e preço promocional pertencem aos contratos de consulta/resgate, não ao pedido. Como esse contrato não possui `Quantity`, o exemplo usa `ProductPrice` como o total líquido da linha e distribui descontos em centavos para a soma dos produtos fechar exatamente com `OrderTotal`.
 
+A resposta do pedido traz `EstimatedBonus`, que o PDV mostra na tela de venda concluída:
+
+```json
+"EstimatedBonus": {
+  "GenerateBonus": true,
+  "EstimatedPoints": 45,
+  "EstimatedCashback": 4,
+  "EstimatedCashbackFormatted": "R$ 4,00"
+}
+```
+
+- É uma estimativa calculada quando o pedido é salvo; o bônus creditado de fato pode mudar (regras alteradas, cancelamento, liberação pendente). Por isso a tela diz "estimados".
+- `GenerateBonus: false` significa que não há bônus previsto **ou** que a estimativa falhou; nos dois casos o pedido foi salvo (200). O PDV só exibe as linhas de bônus quando `GenerateBonus` é `true`.
+- `EstimatedCashback` são os pontos convertidos pelo cashback ativo da loja e, por padrão, arredondados para baixo em reais inteiros, igual ao saldo (45 pts × R$ 0,10 = R$ 4,50 → R$ 4,00). A linha de cashback só aparece quando o valor é maior que zero.
+- Use `EstimatedCashbackFormatted` apenas para exibir; para cálculos, use `EstimatedCashback`.
+
 ## Cancelamento parcial
 
 ```json

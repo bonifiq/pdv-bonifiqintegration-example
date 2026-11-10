@@ -55,7 +55,7 @@ describe('SuccessScreen', () => {
 
     render(<SuccessScreen order={order} orderResult={orderResult} onNewSale={vi.fn()} onViewOrders={vi.fn()} onCancelOrder={onCancelOrder} onPartialCancel={onPartialCancel} isProcessing={false} processingOrderId={null} notice={null} />)
 
-    expect(screen.getByText('Cashback ganho nesta venda')).toBeVisible()
+    expect(screen.getByText('Cashback estimado nesta venda')).toBeVisible()
     expect(screen.getByText('R$ 19,90')).toBeVisible()
     expect(screen.queryByText(/Nova venda em/)).not.toBeInTheDocument()
 

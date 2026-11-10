@@ -167,14 +167,16 @@ export function createMockBonifiqClient(): BonifiqClient {
     },
     async createOrder(request) {
       await delay()
-      const estimatedCashback = Number((request.orderTotal * 0.1).toFixed(2))
+      // Mesma regra padrão da API: cashback dos pontos estimados arredondado para baixo em reais inteiros.
+      const estimatedPoints = Math.floor(request.orderTotal)
+      const estimatedCashback = Math.floor(estimatedPoints * 0.1)
       return success({
         originalId: request.originalId,
         orderTotal: request.orderTotal,
         coupon: request.coupon,
         estimatedBonus: {
           generateBonus: true,
-          estimatedPoints: Math.floor(request.orderTotal),
+          estimatedPoints,
           estimatedCashback,
           estimatedCashbackFormatted: estimatedCashback.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
         },
